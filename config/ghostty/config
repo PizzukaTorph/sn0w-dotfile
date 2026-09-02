@@ -1,0 +1,7 @@
+# sn0w Ghostty baseline
+shell-integration = zsh
+confirm-close-surface = false
+
+# macOS muscle memory without sacrificing Unix Ctrl semantics.
+keybind = super+c=copy_to_clipboard
+keybind = super+v=paste_from_clipboard

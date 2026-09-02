@@ -1,0 +1,38 @@
+---
+- name: Provision sn0w workstation
+  hosts: localhost
+  gather_facts: true
+
+  vars_files:
+    - "../profiles/{{ sn0w_profile | default('vm') }}.yml"
+
+  pre_tasks:
+    - name: Validate supported profile
+      ansible.builtin.assert:
+        that:
+          - sn0w_profile in ['vm', 'asahi']
+        fail_msg: "sn0w_profile must be vm or asahi"
+
+  roles:
+    - base
+    - hyprland
+    - ghostty
+    - nautilus
+    - audio
+    - network
+    - power
+    - dev
+    - quickshell
+    - role: asahi
+      when: sn0w_profile == 'asahi'
+
+  post_tasks:
+    - name: Enable sn0w user services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        scope: user
+        enabled: true
+        daemon_reload: true
+      loop:
+        - sn0w-shell.service
+      become: false

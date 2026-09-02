@@ -1,0 +1,9 @@
+---
+- name: Install power management services
+  ansible.builtin.dnf:
+    name:
+      - upower
+      - power-profiles-daemon
+      - brightnessctl
+    state: present
+  become: true

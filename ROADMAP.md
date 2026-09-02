@@ -1,111 +1,89 @@
 # sn0w Roadmap
 
-## Phase 0 — Foundation
+## Milestone 0 — Specification
 
-- [x] Define architecture and UX principles
-- [x] Choose Fedora Asahi Minimal
-- [x] Choose Hyprland
-- [x] Choose Quickshell
-- [x] Choose Nautilus
-- [x] Choose Ghostty + zsh + Oh My Zsh
-- [x] Define Context Workspace / Project Session model
-- [ ] Verify exact Fedora Asahi package names and repositories on target machine
-- [ ] Create bootstrap script with dry-run / idempotent behaviour
+- [x] Fedora Asahi Minimal as hardware/base layer
+- [x] Hyprland compositor
+- [x] Quickshell shell
+- [x] Ghostty + zsh/Oh My Zsh
+- [x] Nautilus file manager
+- [x] macOS-like modifier contract
+- [x] Context Workspace model
+- [x] Project / Project Session distinction
+- [x] Project Center architecture
+- [x] Overview / Mission Control concept
+- [x] Control Center concept
+- [x] Input / display / power baseline
 
-## Phase 1 — Bootable daily-driver skeleton
+## Milestone 1 — Reproducible VM prototype
 
-- [ ] Hyprland session boots cleanly
-- [ ] Quickshell minimal process starts reliably
-- [ ] Ghostty shortcut works
-- [ ] Nautilus + GVFS/udisks/keyring integration works
-- [ ] PipeWire audio works
-- [ ] Wi-Fi + Bluetooth work
-- [ ] portals + screen sharing/file pickers work
-- [ ] lock / idle / suspend / lid lifecycle tested
+- [x] Ansible provisioning architecture
+- [x] vm/asahi profile split
+- [x] minimal bootstrap script
+- [x] initial package/service roles
+- [x] dotfile linking model
+- [ ] validate package names on target Fedora release
+- [ ] boot generic Fedora VM on S0N
+- [ ] run bootstrap from clean install
+- [ ] reach Hyprland session
+- [ ] make Quickshell V0 visible
+- [ ] validate Ghostty and Nautilus
+- [ ] validate PipeWire / NetworkManager integration
 
-## Phase 2 — Input / Display / Power
-
-- [ ] Apple keyboard modifier policy
-- [ ] per-app/macOS-like shortcuts where needed
-- [ ] trackpad tap/natural scroll/acceleration
-- [ ] 3-finger workspace gestures
-- [ ] Overview gesture plumbing
-- [ ] internal Retina scaling verified
-- [ ] external monitor hotplug verified
-- [ ] display profiles
-- [ ] power profiles + precedence model
-- [ ] battery/AC idle policy
-
-## Phase 3 — Core sn0w Shell
+## Milestone 2 — Core shell
 
 - [ ] topbar
-- [ ] Control Center
-- [ ] audio/brightness OSD
-- [ ] transient notifications
-- [ ] power menu
-- [ ] calendar
-- [ ] launcher V1 (.desktop + fuzzy search)
+- [ ] launcher
 - [ ] app switcher
+- [ ] toast notifications
+- [ ] OSD
+- [ ] Control Center
 - [ ] clipboard history
-- [ ] screenshot V1
-
-## Phase 4 — Context Workspaces & Overview
-
-- [ ] General workspace semantics
-- [ ] Project workspace semantics
-- [ ] Activity workspace/profile schema
-- [ ] Overview workspace cards
-- [ ] Overview keyboard search
-- [ ] project/activity contextual topbar state
-- [ ] window movement/association where cleanly supported
-
-## Phase 5 — Project Center
-
-- [ ] project manifest schema
-- [ ] project discovery/registry
-- [ ] Project Session lifecycle
-- [ ] dynamic workspace assignment
-- [ ] Git status surface
-- [ ] Compose/service state
-- [ ] Code / Terminal / Browser actions
-- [ ] Logs / Exec
-- [ ] HTTP port Open actions
-- [ ] prevent duplicate active sessions
-
-## Phase 6 — Containers panel
-
-- [ ] container list + status/health
-- [ ] ports
-- [ ] Compose grouping
-- [ ] start/stop/restart
-- [ ] Ghostty Logs
-- [ ] Ghostty Exec with bash -> sh fallback
-- [ ] lightweight CPU/RAM
-
-## Phase 7 — Settings & polish
-
-- [ ] sn0w Settings shell
-- [ ] Appearance
-- [ ] Keyboard/Shortcuts
-- [ ] Displays
-- [ ] Sound
-- [ ] Power
-- [ ] Network/Bluetooth
-- [ ] Trackpad
-- [ ] Containers
-- [ ] About
-- [ ] coherent GTK/Qt/icon/cursor/font strategy
+- [ ] screenshot/record UI
 - [ ] Quick Look
-- [ ] screen recording UI
 
-## Phase 8 — Sessions & recovery
+## Milestone 3 — Context workspaces
 
-- [ ] session persistence model
-- [ ] Resume / Windows only / Dismiss prompt
-- [ ] safe restoration of project associations
-- [ ] backup/export of local state
-- [ ] recovery documentation
+- [ ] General / Project / Activity semantic workspaces
+- [ ] Overview
+- [ ] project workspace allocation
+- [ ] Activity profiles
+- [ ] window/session association
+- [ ] restore prompt
 
-## Definition of daily-driver ready
+## Milestone 4 — Developer workstation
 
-sn0w is daily-driver ready when suspend/resume, lid close, Wi-Fi, Bluetooth, audio, portals, display hotplug, input, lock, browser/IDE/terminal workflows and upgrades have been tested for a sustained period without requiring macOS as a fallback for normal development work.
+- [ ] Project manifest schema
+- [ ] Project discovery
+- [ ] Project Sessions
+- [ ] Project Center
+- [ ] Docker status/actions/logs/exec
+- [ ] Git status/actions
+- [ ] project Start / Stop orchestration
+- [ ] SSH quick actions for remote hosts
+
+## Milestone 5 — Physical sn0w / Asahi
+
+- [ ] install Fedora Asahi Minimal on MacBook Pro M1 Pro
+- [ ] run `./bootstrap.sh asahi`
+- [ ] Apple keyboard modifier validation
+- [ ] trackpad gesture tuning
+- [ ] Retina/fractional scaling
+- [ ] brightness + keyboard backlight
+- [ ] speakers/audio validation
+- [ ] Bluetooth validation
+- [ ] lid close/open
+- [ ] suspend/resume
+- [ ] battery and power profiles
+- [ ] external display profiles
+
+## Milestone 6 — Daily-driver hardening
+
+- [ ] login / lock lifecycle
+- [ ] portal / screen sharing / file picker validation
+- [ ] keyring / SSH agent / Git credentials
+- [ ] MIME/default apps
+- [ ] storage automount / SMB / SFTP
+- [ ] update and recovery policy
+- [ ] visual cohesion GTK/Qt/Electron
+- [ ] clean reinstall test

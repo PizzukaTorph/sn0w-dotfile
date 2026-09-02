@@ -1,0 +1,16 @@
+---
+- name: Install Hyprland runtime packages
+  ansible.builtin.dnf:
+    name:
+      - hyprland
+      - hypridle
+      - hyprlock
+    state: present
+  become: true
+
+- name: Link Hyprland configuration
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../config/hypr"
+    dest: "{{ ansible_env.HOME }}/.config/hypr"
+    state: link
+    force: true

@@ -1,0 +1,6 @@
+---
+sn0w_profile: asahi
+sn0w_mock_hardware: false
+sn0w_install_asahi_packages: true
+sn0w_power_profile: balanced
+sn0w_enable_docker: true

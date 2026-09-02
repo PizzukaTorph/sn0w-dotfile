@@ -1,0 +1,13 @@
+---
+- name: Install Nautilus integration stack
+  ansible.builtin.dnf:
+    name:
+      - nautilus
+      - gvfs
+      - gvfs-smb
+      - gvfs-fuse
+      - udisks2
+      - gnome-keyring
+      - sushi
+    state: present
+  become: true

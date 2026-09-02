@@ -1,0 +1,48 @@
+---
+- name: Install base workstation packages
+  ansible.builtin.dnf:
+    name:
+      - git
+      - curl
+      - wget
+      - jq
+      - ripgrep
+      - fd-find
+      - fzf
+      - zsh
+      - unzip
+      - tar
+      - rsync
+      - wl-clipboard
+      - polkit
+      - xdg-user-dirs
+      - xdg-utils
+      - xdg-desktop-portal
+      - xdg-desktop-portal-gtk
+    state: present
+  become: true
+
+- name: Create sn0w config root
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.config/sn0w"
+    state: directory
+    mode: '0755'
+
+- name: Ensure local bin exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/bin"
+    state: directory
+    mode: '0755'
+
+- name: Install sn0w profile marker
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.config/sn0w/profile"
+    content: "{{ sn0w_profile }}\n"
+    mode: '0644'
+
+- name: Link sn0w user services
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../systemd/user"
+    dest: "{{ ansible_env.HOME }}/.config/systemd/user/sn0w"
+    state: link
+    force: true

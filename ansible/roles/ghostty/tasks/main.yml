@@ -1,0 +1,20 @@
+---
+- name: Check whether Ghostty is available from configured repositories
+  ansible.builtin.command: dnf -q list --available ghostty
+  register: ghostty_available
+  changed_when: false
+  failed_when: false
+
+- name: Install Ghostty when available
+  ansible.builtin.dnf:
+    name: ghostty
+    state: present
+  become: true
+  when: ghostty_available.rc == 0
+
+- name: Link Ghostty configuration
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../config/ghostty"
+    dest: "{{ ansible_env.HOME }}/.config/ghostty"
+    state: link
+    force: true
