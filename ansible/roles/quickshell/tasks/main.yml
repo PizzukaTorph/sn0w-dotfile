@@ -8,6 +8,12 @@
       - "copr:copr.fedorainfracloud.org:nett00n:hyprland"
   become: true
 
+- name: Install Qt Wayland platform plugin
+  ansible.builtin.dnf:
+    name: qt6-qtwayland
+    state: present
+  become: true
+
 - name: Link Quickshell configuration
   ansible.builtin.file:
     src: "{{ playbook_dir }}/../shell/quickshell"
