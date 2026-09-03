@@ -57,6 +57,7 @@ FloatingWindow {
                             model: projectState.projects
 
                             delegate: Rectangle {
+                                id: projectCard
                                 required property var modelData
                                 width: projectColumn.width
                                 height: 72
@@ -81,8 +82,8 @@ FloatingWindow {
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 2
-                                        Text { text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14; font.bold: true }
-                                        Text { Layout.fillWidth: true; text: modelData.path; color: "#697586"; font.pixelSize: 10; elide: Text.ElideMiddle }
+                                        Text { text: projectCard.modelData.name; color: "#f4f7fb"; font.pixelSize: 14; font.bold: true }
+                                        Text { Layout.fillWidth: true; text: projectCard.modelData.path; color: "#697586"; font.pixelSize: 10; elide: Text.ElideMiddle }
                                     }
 
                                     Repeater {
@@ -100,9 +101,9 @@ FloatingWindow {
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
-                                                    if (modelData === "Code") projectState.openCode(parent.parent.parent.parent.modelData.path);
-                                                    else if (modelData === "Terminal") projectState.openTerminal(parent.parent.parent.parent.modelData.path);
-                                                    else projectState.openFiles(parent.parent.parent.parent.modelData.path);
+                                                    if (modelData === "Code") projectState.openCode(projectCard.modelData.path);
+                                                    else if (modelData === "Terminal") projectState.openTerminal(projectCard.modelData.path);
+                                                    else projectState.openFiles(projectCard.modelData.path);
                                                 }
                                             }
                                         }
