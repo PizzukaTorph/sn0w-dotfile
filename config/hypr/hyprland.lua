@@ -4,18 +4,11 @@
 local terminal = "foot"
 local fileManager = "nautilus"
 
--- Make the desktop identity explicit for portals and session services.
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_TYPE", "wayland")
 
--- Safe VM/default monitor rule. Asahi-specific scaling will live in its profile.
-hl.monitor({
-    output = "",
-    mode = "preferred",
-    position = "auto",
-    scale = 1,
-})
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 
 hl.config({
     input = {
@@ -28,20 +21,15 @@ hl.config({
     },
 })
 
--- Hyprland owns the live Wayland session. Export it for session services and
--- portals, then launch the sn0w shell directly inside the compositor context.
 hl.on("hyprland.start", function()
     hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH; systemctl --user start graphical-session.target; systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service'")
     hl.exec_cmd("sh -lc 'pkill -x qs 2>/dev/null || true; exec qs'")
-
-    -- Clipboard ownership stays with wl-clipboard/cliphist; Quickshell is only
-    -- the UI used to browse and restore entries.
     hl.exec_cmd("sh -lc 'pkill -f \"wl-paste.*cliphist store\" 2>/dev/null || true; wl-paste --type text --watch cliphist store >/dev/null 2>&1 & wl-paste --type image --watch cliphist store >/dev/null 2>&1 &' ")
 end)
 
 -- Core sn0w contracts.
 hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
-hl.bind("SUPER + TAB", hl.dsp.exec_cmd("qs ipc call switcher toggle"))
+hl.bind("SUPER + TAB", hl.dsp.exec_cmd("qs ipc call switcher cycle"))
 hl.bind("SUPER + UP", hl.dsp.exec_cmd("qs ipc call overview toggle"))
 hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 hl.bind("SUPER + SHIFT + RETURN", hl.dsp.exec_cmd(terminal))
@@ -52,7 +40,7 @@ hl.bind("SUPER + SHIFT + 3", hl.dsp.exec_cmd("sh -lc 'mkdir -p ~/Pictures/Screen
 hl.bind("SUPER + SHIFT + 4", hl.dsp.exec_cmd("sh -lc 'mkdir -p ~/Pictures/Screenshots; grim -g \"$(slurp)\" ~/Pictures/Screenshots/sn0w-$(date +%Y%m%d-%H%M%S).png'"))
 hl.bind("SUPER + SHIFT + 5", hl.dsp.exec_cmd("qs ipc call capture toggle"))
 
--- Media keys. Backend ownership remains PipeWire/playerctl; OSD is presentation.
+-- Media keys. PipeWire/playerctl own the state; Quickshell owns presentation.
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("sh -lc 'wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd volume ${v:-0}'"))
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("sh -lc 'wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd volume ${v:-0}'"))
 hl.bind("XF86AudioMute", hl.dsp.exec_cmd("sh -lc 'wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd mute ${v:-0}'"))
@@ -72,12 +60,10 @@ hl.bind("SUPER + LEFT", hl.dsp.focus({ direction = "l" }))
 hl.bind("SUPER + RIGHT", hl.dsp.focus({ direction = "r" }))
 hl.bind("SUPER + DOWN", hl.dsp.focus({ direction = "d" }))
 
--- Workspace navigation uses CTRL so plain Command+arrows remain available for
--- application-level Mac muscle memory.
+-- Workspace navigation uses CTRL so plain Command+arrows remain available for app semantics.
 hl.bind("SUPER + CTRL + LEFT", hl.dsp.focus({ workspace = "e-1" }))
 hl.bind("SUPER + CTRL + RIGHT", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind("SUPER + CTRL + SHIFT + LEFT", hl.dsp.window.move({ workspace = "e-1" }))
 hl.bind("SUPER + CTRL + SHIFT + RIGHT", hl.dsp.window.move({ workspace = "e+1" }))
 
--- Recovery escape hatch during bootstrap/debug.
 hl.bind("SUPER + SHIFT + Q", hl.dsp.exit())
