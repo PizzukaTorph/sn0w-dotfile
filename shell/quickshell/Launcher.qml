@@ -211,6 +211,7 @@ FloatingWindow {
                                     anchors.leftMargin: 10
                                     anchors.rightMargin: 10
                                     spacing: 12
+
                                     Image {
                                         source: modelData.icon.length > 0 ? Quickshell.iconPath(modelData.icon) : ""
                                         sourceSize.width: 28
@@ -218,14 +219,34 @@ FloatingWindow {
                                         Layout.preferredWidth: 30
                                         Layout.preferredHeight: 30
                                     }
+
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 1
-                                        Text { Layout.fillWidth: true; text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14; elide: Text.ElideRight }
-                                        Text { Layout.fillWidth: true; text: modelData.genericName.length > 0 ? modelData.genericName : modelData.comment; color: "#697586"; font.pixelSize: 11; elide: Text.ElideRight }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.name
+                                            color: "#f4f7fb"
+                                            font.pixelSize: 14
+                                            elide: Text.ElideRight
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.genericName.length > 0 ? modelData.genericName : modelData.comment
+                                            color: "#697586"
+                                            font.pixelSize: 11
+                                            elide: Text.ElideRight
+                                        }
                                     }
                                 }
-                                MouseArea { id: appMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: appItem.activate() }
+
+                                MouseArea {
+                                    id: appMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: appItem.activate()
+                                }
                             }
                         }
 
@@ -242,19 +263,50 @@ FloatingWindow {
                                 width: resultsColumn.width
                                 radius: 10
                                 color: index === launcher.selectedIndex ? "#27313d" : (actionMouse.containsMouse ? "#1b222c" : "transparent")
+
                                 function activate(): void {
-                                    if (modelData.special === "projects") launcher.projectCenterRequested();
-                                    else { actionProc.command = modelData.command; actionProc.running = true; }
+                                    if (modelData.special === "projects")
+                                        launcher.projectCenterRequested();
+                                    else {
+                                        actionProc.command = modelData.command;
+                                        actionProc.running = true;
+                                    }
                                     launcher.visible = false;
                                 }
+
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: 12
                                     anchors.rightMargin: 12
-                                    Text { text: "›"; color: "#9aa5b4"; font.pixelSize: 17 }
-                                    ColumnLayout { Layout.fillWidth: true; Text { text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14 }; Text { text: modelData.hint; color: "#697586"; font.pixelSize: 10 } }
+
+                                    Text {
+                                        text: "›"
+                                        color: "#9aa5b4"
+                                        font.pixelSize: 17
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Text {
+                                            text: modelData.name
+                                            color: "#f4f7fb"
+                                            font.pixelSize: 14
+                                        }
+                                        Text {
+                                            text: modelData.hint
+                                            color: "#697586"
+                                            font.pixelSize: 10
+                                        }
+                                    }
                                 }
-                                MouseArea { id: actionMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: actionItem.activate() }
+
+                                MouseArea {
+                                    id: actionMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: actionItem.activate()
+                                }
                             }
                         }
 
@@ -271,9 +323,29 @@ FloatingWindow {
                                 width: resultsColumn.width
                                 radius: 10
                                 color: index === launcher.selectedIndex ? "#27313d" : (sshMouse.containsMouse ? "#1b222c" : "transparent")
-                                function activate(): void { actionProc.command = ["foot", "-e", "ssh", modelData]; actionProc.running = true; launcher.visible = false; }
-                                RowLayout { anchors.fill: parent; anchors.margins: 12; Text { text: "⌁"; color: "#9aa5b4" }; Text { text: modelData; color: "#f4f7fb"; font.pixelSize: 14 }; Item { Layout.fillWidth: true }; Text { text: "ssh"; color: "#596474"; font.pixelSize: 10 } }
-                                MouseArea { id: sshMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sshItem.activate() }
+
+                                function activate(): void {
+                                    actionProc.command = ["foot", "-e", "ssh", modelData];
+                                    actionProc.running = true;
+                                    launcher.visible = false;
+                                }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    Text { text: "⌁"; color: "#9aa5b4" }
+                                    Text { text: modelData; color: "#f4f7fb"; font.pixelSize: 14 }
+                                    Item { Layout.fillWidth: true }
+                                    Text { text: "ssh"; color: "#596474"; font.pixelSize: 10 }
+                                }
+
+                                MouseArea {
+                                    id: sshMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: sshItem.activate()
+                                }
                             }
                         }
 
@@ -290,14 +362,40 @@ FloatingWindow {
                                 width: resultsColumn.width
                                 radius: 10
                                 color: index === launcher.selectedIndex ? "#27313d" : (projectMouse.containsMouse ? "#1b222c" : "transparent")
-                                function activate(): void { launcher.projectState.openCode(modelData.path); launcher.visible = false; }
+
+                                function activate(): void {
+                                    launcher.projectState.openCode(modelData.path);
+                                    launcher.visible = false;
+                                }
+
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.margins: 12
                                     Text { text: "◆"; color: "#9aa5b4"; font.pixelSize: 12 }
-                                    ColumnLayout { Layout.fillWidth: true; Text { text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14 }; Text { Layout.fillWidth: true; text: modelData.path; color: "#697586"; font.pixelSize: 10; elide: Text.ElideMiddle } }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Text {
+                                            text: modelData.name
+                                            color: "#f4f7fb"
+                                            font.pixelSize: 14
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.path
+                                            color: "#697586"
+                                            font.pixelSize: 10
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
                                 }
-                                MouseArea { id: projectMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: projectItem.activate() }
+
+                                MouseArea {
+                                    id: projectMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: projectItem.activate()
+                                }
                             }
                         }
                     }
