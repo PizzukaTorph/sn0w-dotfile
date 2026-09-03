@@ -65,10 +65,18 @@ ShellRoot {
     Launcher {
         visible: root.launcherVisible
         projectState: projectState
+        settingsState: settingsState
+
         onProjectCenterRequested: {
             root.closeTransientSurfaces()
             projectState.refresh()
             root.projectCenterVisible = true
+        }
+
+        onSettingsRequested: {
+            root.closeTransientSurfaces()
+            settingsState.load()
+            root.settingsVisible = true
         }
     }
 
