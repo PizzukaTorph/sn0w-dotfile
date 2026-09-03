@@ -28,23 +28,41 @@ hl.config({
     },
 })
 
--- Hyprland is the owner of the live Wayland session. Export its environment to
--- the systemd user manager for portals, then launch Quickshell directly from
--- this compositor process. This avoids a race where graphical-session.target
--- starts the shell before WAYLAND_DISPLAY reaches the user manager.
+-- Hyprland owns the live Wayland session. Export it for session services and
+-- portals, then launch the sn0w shell directly inside the compositor context.
 hl.on("hyprland.start", function()
     hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH; systemctl --user start graphical-session.target; systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service'")
     hl.exec_cmd("sh -lc 'pkill -x qs 2>/dev/null || true; exec qs'")
+
+    -- Clipboard ownership stays with wl-clipboard/cliphist; Quickshell is only
+    -- the UI used to browse and restore entries.
+    hl.exec_cmd("sh -lc 'pkill -f \"wl-paste.*cliphist store\" 2>/dev/null || true; wl-paste --type text --watch cliphist store >/dev/null 2>&1 & wl-paste --type image --watch cliphist store >/dev/null 2>&1 &' ")
 end)
 
 -- Core sn0w contracts.
 hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
 hl.bind("SUPER + TAB", hl.dsp.exec_cmd("qs ipc call switcher toggle"))
 hl.bind("SUPER + UP", hl.dsp.exec_cmd("qs ipc call overview toggle"))
+hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 hl.bind("SUPER + SHIFT + RETURN", hl.dsp.exec_cmd(terminal))
 hl.bind("SUPER + E", hl.dsp.exec_cmd(fileManager))
 
--- Essential window management while the custom shell is still being built.
+-- Capture contracts, matching macOS muscle memory.
+hl.bind("SUPER + SHIFT + 3", hl.dsp.exec_cmd("sh -lc 'mkdir -p ~/Pictures/Screenshots; grim ~/Pictures/Screenshots/sn0w-$(date +%Y%m%d-%H%M%S).png'"))
+hl.bind("SUPER + SHIFT + 4", hl.dsp.exec_cmd("sh -lc 'mkdir -p ~/Pictures/Screenshots; grim -g \"$(slurp)\" ~/Pictures/Screenshots/sn0w-$(date +%Y%m%d-%H%M%S).png'"))
+hl.bind("SUPER + SHIFT + 5", hl.dsp.exec_cmd("qs ipc call capture toggle"))
+
+-- Media keys. Backend ownership remains PipeWire/playerctl; OSD is presentation.
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("sh -lc 'wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd volume ${v:-0}'"))
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("sh -lc 'wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd volume ${v:-0}'"))
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("sh -lc 'wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd mute ${v:-0}'"))
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("sh -lc 'brightnessctl set +5% >/dev/null 2>&1 || exit 0; v=$(brightnessctl -m | awk -F, \"{gsub(/%/,\\\"\\\",\\\$4); print \\\$4}\"); qs ipc call osd brightness ${v:-0}'"))
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("sh -lc 'brightnessctl set 5%- >/dev/null 2>&1 || exit 0; v=$(brightnessctl -m | awk -F, \"{gsub(/%/,\\\"\\\",\\\$4); print \\\$4}\"); qs ipc call osd brightness ${v:-0}'"))
+hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"))
+hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"))
+hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"))
+
+-- Essential window management.
 hl.bind("SUPER + W", hl.dsp.window.close({}))
 hl.bind("SUPER + F", hl.dsp.window.fullscreen({ action = "toggle", mode = "fullscreen" }))
 hl.bind("SUPER + SHIFT + F", hl.dsp.window.float({ action = "toggle" }))
@@ -54,7 +72,7 @@ hl.bind("SUPER + LEFT", hl.dsp.focus({ direction = "l" }))
 hl.bind("SUPER + RIGHT", hl.dsp.focus({ direction = "r" }))
 hl.bind("SUPER + DOWN", hl.dsp.focus({ direction = "d" }))
 
--- Workspace navigation uses CTRL so plain Command+arrows can later preserve
+-- Workspace navigation uses CTRL so plain Command+arrows remain available for
 -- application-level Mac muscle memory.
 hl.bind("SUPER + CTRL + LEFT", hl.dsp.focus({ workspace = "e-1" }))
 hl.bind("SUPER + CTRL + RIGHT", hl.dsp.focus({ workspace = "e+1" }))
