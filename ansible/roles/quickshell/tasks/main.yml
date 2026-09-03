@@ -1,16 +1,12 @@
 ---
-- name: Check whether Quickshell is available from configured repositories
-  ansible.builtin.command: dnf -q list --available quickshell
-  register: quickshell_available
-  changed_when: false
-  failed_when: false
-
-- name: Install Quickshell when available
+- name: Install Fedora Quickshell build compatible with Qt 6.11
   ansible.builtin.dnf:
-    name: quickshell
+    name: "quickshell-0.2.1^git20260209.dacfa9d-5.fc44"
     state: present
+    allow_downgrade: true
+    disablerepo:
+      - "copr:copr.fedorainfracloud.org:nett00n:hyprland"
   become: true
-  when: quickshell_available.rc == 0
 
 - name: Link Quickshell configuration
   ansible.builtin.file:
