@@ -15,6 +15,6 @@
 - name: Link Quickshell configuration
   ansible.builtin.file:
     src: "{{ playbook_dir }}/../shell/quickshell"
-    dest: "{{ ansible_env.HOME }}/.config/quickshell"
+    dest: "{{ ansible_facts['user_dir'] }}/.config/quickshell"
     state: link
     force: true
