@@ -12,17 +12,36 @@ FloatingWindow {
     implicitWidth: 720
     implicitHeight: 210
 
+    function ensureSelectedVisible(): void {
+        if (hyprState.clients.length === 0 || appFlick.width <= 0)
+            return;
+
+        const item = appRepeater.itemAt(selectedIndex);
+        if (!item)
+            return;
+
+        const left = item.x;
+        const right = item.x + item.width;
+        if (left < appFlick.contentX)
+            appFlick.contentX = left;
+        else if (right > appFlick.contentX + appFlick.width)
+            appFlick.contentX = Math.max(0, right - appFlick.width);
+    }
+
     function cycle(): void {
         if (hyprState.clients.length === 0)
             return;
         selectedIndex = (selectedIndex + 1) % hyprState.clients.length;
         visible = true;
+        Qt.callLater(ensureSelectedVisible);
         commitTimer.restart();
     }
 
     function resetAndShow(): void {
         selectedIndex = 0;
+        appFlick.contentX = 0;
         visible = true;
+        Qt.callLater(ensureSelectedVisible);
         commitTimer.restart();
     }
 
@@ -63,6 +82,7 @@ FloatingWindow {
             }
 
             Flickable {
+                id: appFlick
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 contentWidth: appRow.implicitWidth
@@ -76,12 +96,20 @@ FloatingWindow {
                     spacing: 10
 
                     Repeater {
+                        id: appRepeater
                         model: hyprState.clients
 
                         delegate: Rectangle {
                             required property var modelData
                             required property int index
-                            width: 150
+
+                            // Up to four windows should always fit inside the modal. Only
+                            // overflow to horizontal scrolling once there are more.
+                            width: {
+                                const visibleCards = Math.max(1, Math.min(4, hyprState.clients.length));
+                                const available = appFlick.width - appRow.spacing * (visibleCards - 1);
+                                return Math.max(112, Math.min(150, available / visibleCards));
+                            }
                             height: appRow.height
                             radius: 12
                             color: index === switcher.selectedIndex ? "#27313d" : (appMouse.containsMouse ? "#202731" : "#171c23")
@@ -90,7 +118,7 @@ FloatingWindow {
 
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: 12
+                                anchors.margins: 10
                                 spacing: 7
 
                                 Rectangle {
