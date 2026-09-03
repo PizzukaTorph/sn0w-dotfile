@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -6,19 +7,87 @@ import QtQuick.Layouts
 FloatingWindow {
     id: launcher
 
+    required property var projectState
+    signal projectCenterRequested()
+
+    property int selectedIndex: 0
+    property var actions: [
+        { name: "Terminal", hint: "Open foot", command: ["foot"] },
+        { name: "Files", hint: "Open Nautilus", command: ["nautilus"] },
+        { name: "Project Center", hint: "Open sn0w project workspace", special: "projects" }
+    ]
+    property var sshHosts: ["m0ther", "s0n"]
+
     title: "sn0w Launcher"
-    implicitWidth: 700
-    implicitHeight: 500
+    implicitWidth: 720
+    implicitHeight: 520
 
-    function matches(entry): bool {
-        const needle = query.text.trim().toLowerCase();
-        if (needle.length === 0)
-            return true;
-
-        return entry.name.toLowerCase().includes(needle)
-            || entry.genericName.toLowerCase().includes(needle)
-            || entry.comment.toLowerCase().includes(needle);
+    function mode(): string {
+        const text = query.text.trim().toLowerCase();
+        if (text.indexOf(">") === 0) return "actions";
+        if (text.indexOf("ssh ") === 0) return "ssh";
+        if (text.indexOf("project ") === 0) return "projects";
+        return "apps";
     }
+
+    function needle(): string {
+        let text = query.text.trim().toLowerCase();
+        if (mode() === "actions") return text.slice(1).trim();
+        if (mode() === "ssh") return text.slice(4).trim();
+        if (mode() === "projects") return text.slice(8).trim();
+        return text;
+    }
+
+    function fuzzy(value: string): bool {
+        const n = needle();
+        if (n.length === 0) return true;
+        const hay = (value || "").toLowerCase();
+        let at = 0;
+        for (let i = 0; i < hay.length && at < n.length; ++i)
+            if (hay[i] === n[at]) ++at;
+        return at === n.length;
+    }
+
+    function appMatches(entry): bool {
+        return fuzzy((entry.name || "") + " " + (entry.genericName || "") + " " + (entry.comment || ""));
+    }
+
+    function nextVisible(delta: int): void {
+        const repeater = mode() === "apps" ? appRepeater
+                       : mode() === "actions" ? actionRepeater
+                       : mode() === "ssh" ? sshRepeater
+                       : projectRepeater;
+        if (!repeater || repeater.count <= 0) return;
+        let i = selectedIndex;
+        for (let tries = 0; tries < repeater.count; ++tries) {
+            i = (i + delta + repeater.count) % repeater.count;
+            const item = repeater.itemAt(i);
+            if (item && item.visible) {
+                selectedIndex = i;
+                return;
+            }
+        }
+    }
+
+    function activateSelected(): void {
+        const repeater = mode() === "apps" ? appRepeater
+                       : mode() === "actions" ? actionRepeater
+                       : mode() === "ssh" ? sshRepeater
+                       : projectRepeater;
+        const item = repeater ? repeater.itemAt(selectedIndex) : null;
+        if (item && item.visible && item.activate)
+            item.activate();
+    }
+
+    function reset(): void {
+        selectedIndex = 0;
+        query.clear();
+        query.forceActiveFocus();
+    }
+
+    onVisibleChanged: if (visible) reset()
+
+    Process { id: actionProc }
 
     Rectangle {
         anchors.fill: parent
@@ -34,41 +103,13 @@ FloatingWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-
                 ColumnLayout {
                     spacing: 1
-
-                    Text {
-                        text: "sn0w"
-                        color: "#f4f7fb"
-                        font.pixelSize: 22
-                        font.bold: true
-                    }
-
-                    Text {
-                        text: "Launcher"
-                        color: "#697586"
-                        font.pixelSize: 11
-                    }
+                    Text { text: "sn0w"; color: "#f4f7fb"; font.pixelSize: 22; font.bold: true }
+                    Text { text: "Launcher · apps / actions / projects / ssh"; color: "#697586"; font.pixelSize: 11 }
                 }
-
                 Item { Layout.fillWidth: true }
-
-                Rectangle {
-                    Layout.preferredWidth: 62
-                    Layout.preferredHeight: 24
-                    radius: 8
-                    color: "#171c23"
-                    border.width: 1
-                    border.color: "#242c36"
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "⌘ Space"
-                        color: "#8f9aaa"
-                        font.pixelSize: 10
-                    }
-                }
+                Text { text: "⌘ Space"; color: "#8f9aaa"; font.pixelSize: 10 }
             }
 
             Rectangle {
@@ -93,32 +134,37 @@ FloatingWindow {
                     anchors.fill: parent
                     anchors.leftMargin: 42
                     anchors.rightMargin: 10
-                    placeholderText: "Apps, projects, actions…"
+                    placeholderText: "Search apps · > actions · project name · ssh host"
                     color: "#f4f7fb"
                     font.pixelSize: 16
                     focus: launcher.visible
                     selectByMouse: true
                     background: Item {}
+
+                    onTextChanged: launcher.selectedIndex = 0
+
+                    Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Down) { launcher.nextVisible(1); event.accepted = true; }
+                        else if (event.key === Qt.Key_Up) { launcher.nextVisible(-1); event.accepted = true; }
+                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { launcher.activateSelected(); event.accepted = true; }
+                        else if (event.key === Qt.Key_Escape) { launcher.visible = false; query.clear(); event.accepted = true; }
+                    }
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-
                 Text {
-                    text: query.text.length === 0 ? "Applications" : "Results"
+                    text: launcher.mode() === "apps" ? "Applications"
+                        : launcher.mode() === "actions" ? "Actions"
+                        : launcher.mode() === "ssh" ? "SSH"
+                        : "Projects"
                     color: "#9aa5b4"
                     font.pixelSize: 11
                     font.bold: true
                 }
-
                 Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "desktop entries"
-                    color: "#596474"
-                    font.pixelSize: 10
-                }
+                Text { text: "↑↓ select · Enter run · Esc close"; color: "#596474"; font.pixelSize: 10 }
             }
 
             Rectangle {
@@ -132,106 +178,129 @@ FloatingWindow {
                     anchors.fill: parent
                     anchors.margins: 8
                     contentWidth: width
-                    contentHeight: appColumn.implicitHeight
+                    contentHeight: resultsColumn.implicitHeight
                     boundsBehavior: Flickable.StopAtBounds
 
                     Column {
-                        id: appColumn
+                        id: resultsColumn
                         width: parent.width
                         spacing: 4
 
                         Repeater {
+                            id: appRepeater
                             model: DesktopEntries.applications
-
                             delegate: Rectangle {
+                                id: appItem
                                 required property var modelData
-                                width: appColumn.width
-                                height: launcher.matches(modelData) ? 54 : 0
-                                visible: launcher.matches(modelData)
+                                required property int index
+                                property bool match: launcher.mode() === "apps" && launcher.appMatches(modelData)
+                                visible: match
+                                height: match ? 54 : 0
+                                width: resultsColumn.width
                                 radius: 10
-                                color: mouse.containsMouse ? "#1b222c" : "transparent"
-                                clip: true
+                                color: index === launcher.selectedIndex ? "#27313d" : (appMouse.containsMouse ? "#1b222c" : "transparent")
+
+                                function activate(): void {
+                                    modelData.execute();
+                                    launcher.visible = false;
+                                    query.clear();
+                                }
 
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: 10
                                     anchors.rightMargin: 10
                                     spacing: 12
-
-                                    Rectangle {
-                                        Layout.preferredWidth: 36
-                                        Layout.preferredHeight: 36
-                                        radius: 9
-                                        color: "#202731"
-
-                                        Image {
-                                            anchors.centerIn: parent
-                                            source: modelData.icon.length > 0
-                                                ? Quickshell.iconPath(modelData.icon)
-                                                : ""
-                                            sourceSize.width: 26
-                                            sourceSize.height: 26
-                                            width: 26
-                                            height: 26
-                                        }
+                                    Image {
+                                        source: modelData.icon.length > 0 ? Quickshell.iconPath(modelData.icon) : ""
+                                        sourceSize.width: 28
+                                        sourceSize.height: 28
+                                        Layout.preferredWidth: 30
+                                        Layout.preferredHeight: 30
                                     }
-
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 1
-
-                                        Text {
-                                            text: modelData.name
-                                            color: "#f4f7fb"
-                                            font.pixelSize: 14
-                                            elide: Text.ElideRight
-                                            Layout.fillWidth: true
-                                        }
-
-                                        Text {
-                                            text: modelData.genericName.length > 0
-                                                ? modelData.genericName
-                                                : modelData.comment
-                                            color: "#697586"
-                                            font.pixelSize: 11
-                                            elide: Text.ElideRight
-                                            Layout.fillWidth: true
-                                        }
+                                        Text { Layout.fillWidth: true; text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14; elide: Text.ElideRight }
+                                        Text { Layout.fillWidth: true; text: modelData.genericName.length > 0 ? modelData.genericName : modelData.comment; color: "#697586"; font.pixelSize: 11; elide: Text.ElideRight }
                                     }
                                 }
+                                MouseArea { id: appMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: appItem.activate() }
+                            }
+                        }
 
-                                MouseArea {
-                                    id: mouse
+                        Repeater {
+                            id: actionRepeater
+                            model: launcher.actions
+                            delegate: Rectangle {
+                                id: actionItem
+                                required property var modelData
+                                required property int index
+                                property bool match: launcher.mode() === "actions" && launcher.fuzzy(modelData.name + " " + modelData.hint)
+                                visible: match
+                                height: match ? 54 : 0
+                                width: resultsColumn.width
+                                radius: 10
+                                color: index === launcher.selectedIndex ? "#27313d" : (actionMouse.containsMouse ? "#1b222c" : "transparent")
+                                function activate(): void {
+                                    if (modelData.special === "projects") launcher.projectCenterRequested();
+                                    else { actionProc.command = modelData.command; actionProc.running = true; }
+                                    launcher.visible = false;
+                                }
+                                RowLayout {
                                     anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        modelData.execute();
-                                        launcher.visible = false;
-                                        query.clear();
-                                    }
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+                                    Text { text: "›"; color: "#9aa5b4"; font.pixelSize: 17 }
+                                    ColumnLayout { Layout.fillWidth: true; Text { text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14 }; Text { text: modelData.hint; color: "#697586"; font.pixelSize: 10 } }
                                 }
+                                MouseArea { id: actionMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: actionItem.activate() }
+                            }
+                        }
+
+                        Repeater {
+                            id: sshRepeater
+                            model: launcher.sshHosts
+                            delegate: Rectangle {
+                                id: sshItem
+                                required property string modelData
+                                required property int index
+                                property bool match: launcher.mode() === "ssh" && launcher.fuzzy(modelData)
+                                visible: match
+                                height: match ? 54 : 0
+                                width: resultsColumn.width
+                                radius: 10
+                                color: index === launcher.selectedIndex ? "#27313d" : (sshMouse.containsMouse ? "#1b222c" : "transparent")
+                                function activate(): void { actionProc.command = ["foot", "-e", "ssh", modelData]; actionProc.running = true; launcher.visible = false; }
+                                RowLayout { anchors.fill: parent; anchors.margins: 12; Text { text: "⌁"; color: "#9aa5b4" }; Text { text: modelData; color: "#f4f7fb"; font.pixelSize: 14 }; Item { Layout.fillWidth: true }; Text { text: "ssh"; color: "#596474"; font.pixelSize: 10 } }
+                                MouseArea { id: sshMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sshItem.activate() }
+                            }
+                        }
+
+                        Repeater {
+                            id: projectRepeater
+                            model: launcher.projectState.projects
+                            delegate: Rectangle {
+                                id: projectItem
+                                required property var modelData
+                                required property int index
+                                property bool match: launcher.mode() === "projects" && launcher.fuzzy(modelData.name + " " + modelData.path)
+                                visible: match
+                                height: match ? 58 : 0
+                                width: resultsColumn.width
+                                radius: 10
+                                color: index === launcher.selectedIndex ? "#27313d" : (projectMouse.containsMouse ? "#1b222c" : "transparent")
+                                function activate(): void { launcher.projectState.openCode(modelData.path); launcher.visible = false; }
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    Text { text: "◆"; color: "#9aa5b4"; font.pixelSize: 12 }
+                                    ColumnLayout { Layout.fillWidth: true; Text { text: modelData.name; color: "#f4f7fb"; font.pixelSize: 14 }; Text { Layout.fillWidth: true; text: modelData.path; color: "#697586"; font.pixelSize: 10; elide: Text.ElideMiddle } }
+                                }
+                                MouseArea { id: projectMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: projectItem.activate() }
                             }
                         }
                     }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Text {
-                    text: "Enter launch · Esc close"
-                    color: "#596474"
-                    font.pixelSize: 10
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "Projects + actions next"
-                    color: "#596474"
-                    font.pixelSize: 10
                 }
             }
         }
