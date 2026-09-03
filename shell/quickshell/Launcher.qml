@@ -9,7 +9,6 @@ FloatingWindow {
     title: "sn0w launcher"
     implicitWidth: 680
     implicitHeight: 460
-    color: "#11151b"
 
     function matches(entry): bool {
         const needle = query.text.trim().toLowerCase();
