@@ -10,6 +10,7 @@ ShellRoot {
     property bool overviewVisible: false
     property bool clipboardVisible: false
     property bool captureVisible: false
+    property bool projectCenterVisible: false
     property string mode: "General"
 
     function closeTransientSurfaces(): void {
@@ -18,10 +19,12 @@ ShellRoot {
         overviewVisible = false;
         clipboardVisible = false;
         captureVisible = false;
+        projectCenterVisible = false;
     }
 
     SystemState { id: systemState }
     HyprState { id: hyprState }
+    ProjectState { id: projectState }
     OSD { id: osd }
 
     TopBar {
@@ -33,17 +36,33 @@ ShellRoot {
         }
     }
 
-    Launcher { visible: root.launcherVisible }
+    Launcher {
+        visible: root.launcherVisible
+        projectState: projectState
+        onProjectCenterRequested: {
+            root.closeTransientSurfaces();
+            projectState.refresh();
+            root.projectCenterVisible = true;
+        }
+    }
+
     AppSwitcher {
         id: appSwitcher
         visible: root.switcherVisible
         hyprState: hyprState
         onVisibleChanged: root.switcherVisible = visible
     }
+
     Overview {
         visible: root.overviewVisible
         hyprState: hyprState
     }
+
+    ProjectCenter {
+        visible: root.projectCenterVisible
+        projectState: projectState
+    }
+
     ClipboardHistory { visible: root.clipboardVisible }
     CapturePanel { visible: root.captureVisible }
 
@@ -79,6 +98,18 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "projects"
+        function toggle(): void {
+            const next = !root.projectCenterVisible;
+            root.closeTransientSurfaces();
+            projectState.refresh();
+            root.projectCenterVisible = next;
+        }
+        function open(): void { root.closeTransientSurfaces(); projectState.refresh(); root.projectCenterVisible = true; }
+        function close(): void { root.projectCenterVisible = false; }
+    }
+
+    IpcHandler {
         target: "clipboard"
         function toggle(): void { const next = !root.clipboardVisible; root.closeTransientSurfaces(); root.clipboardVisible = next; }
         function open(): void { root.closeTransientSurfaces(); root.clipboardVisible = true; }
@@ -94,37 +125,11 @@ ShellRoot {
 
     IpcHandler {
         target: "osd"
-
-        function volumeUp(): void {
-            const value = Math.min(100, systemState.volume + 5);
-            systemState.setVolume(value);
-            osd.showValue("volume", value, false);
-        }
-
-        function volumeDown(): void {
-            const value = Math.max(0, systemState.volume - 5);
-            systemState.setVolume(value);
-            osd.showValue("volume", value, false);
-        }
-
-        function muteToggle(): void {
-            systemState.toggleMute();
-            osd.showValue("volume", systemState.volume, !systemState.muted);
-        }
-
-        function brightnessUp(): void {
-            if (systemState.brightness < 0) return;
-            const value = Math.min(100, systemState.brightness + 5);
-            systemState.setBrightness(value);
-            osd.showValue("brightness", value, false);
-        }
-
-        function brightnessDown(): void {
-            if (systemState.brightness < 0) return;
-            const value = Math.max(1, systemState.brightness - 5);
-            systemState.setBrightness(value);
-            osd.showValue("brightness", value, false);
-        }
+        function volumeUp(): void { const value = Math.min(100, systemState.volume + 5); systemState.setVolume(value); osd.showValue("volume", value, false); }
+        function volumeDown(): void { const value = Math.max(0, systemState.volume - 5); systemState.setVolume(value); osd.showValue("volume", value, false); }
+        function muteToggle(): void { systemState.toggleMute(); osd.showValue("volume", systemState.volume, !systemState.muted); }
+        function brightnessUp(): void { if (systemState.brightness < 0) return; const value = Math.min(100, systemState.brightness + 5); systemState.setBrightness(value); osd.showValue("brightness", value, false); }
+        function brightnessDown(): void { if (systemState.brightness < 0) return; const value = Math.max(1, systemState.brightness - 5); systemState.setBrightness(value); osd.showValue("brightness", value, false); }
     }
 
     IpcHandler {
