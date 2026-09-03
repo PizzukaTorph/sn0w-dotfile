@@ -4,6 +4,11 @@
 local terminal = "foot"
 local fileManager = "nautilus"
 
+-- Make the desktop identity explicit for portals and systemd user services.
+hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
+hl.env("XDG_SESSION_DESKTOP", "Hyprland")
+hl.env("XDG_SESSION_TYPE", "wayland")
+
 -- Safe VM/default monitor rule. Asahi-specific scaling will live in its profile.
 hl.monitor({
     output = "",
@@ -23,10 +28,12 @@ hl.config({
     },
 })
 
--- Quickshell owns the visible sn0w shell. Start it once when the compositor
--- announces that the session is up, so it inherits the active Wayland session.
+-- Fedora 44's xdg-desktop-portal is tied to graphical-session.target. Hyprland
+-- is launched directly from a VT in sn0w, so establish that user-session
+-- contract ourselves, export the live Wayland environment, then restart the
+-- session-owned services against the correct compositor instance.
 hl.on("hyprland.start", function()
-    hl.exec_cmd("qs")
+    hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all && systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH && systemctl --user start graphical-session.target && systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service && systemctl --user restart sn0w-shell.service'")
 end)
 
 -- Core sn0w contracts.
