@@ -3,7 +3,7 @@
   ansible.builtin.dnf:
     name:
       - upower
-      - power-profiles-daemon
+      - tuned-ppd
       - brightnessctl
     state: present
   become: true
