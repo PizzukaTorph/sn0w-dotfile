@@ -8,15 +8,17 @@ FloatingWindow {
     id: launcher
 
     required property var projectState
+    required property var settingsState
     signal projectCenterRequested()
+    signal settingsRequested()
 
     property int selectedIndex: 0
     property var actions: [
-        { name: "Terminal", hint: "Open foot", command: ["foot"] },
-        { name: "Files", hint: "Open Nautilus", command: ["nautilus"] },
-        { name: "Project Center", hint: "Open sn0w project workspace", special: "projects" }
+        { name: "Terminal", hint: "Open " + settingsState.terminal, command: [settingsState.terminal] },
+        { name: "Files", hint: "Open " + settingsState.fileManager, command: [settingsState.fileManager] },
+        { name: "Project Center", hint: "Open sn0w project workspace", special: "projects" },
+        { name: "Settings", hint: "Configure sn0w", special: "settings" }
     ]
-    property var sshHosts: ["m0ther", "s0n"]
 
     title: "sn0w Launcher"
     implicitWidth: 620
@@ -348,6 +350,8 @@ FloatingWindow {
                                 function activate(): void {
                                     if (modelData.special === "projects") {
                                         launcher.projectCenterRequested()
+                                    } else if (modelData.special === "settings") {
+                                        launcher.settingsRequested()
                                     } else {
                                         actionProc.command = modelData.command
                                         actionProc.running = true
@@ -395,7 +399,7 @@ FloatingWindow {
 
                         Repeater {
                             id: sshRepeater
-                            model: launcher.sshHosts
+                            model: launcher.settingsState.sshHosts
 
                             delegate: Rectangle {
                                 id: sshItem
@@ -409,7 +413,11 @@ FloatingWindow {
                                 color: index === launcher.selectedIndex ? "#27313d" : (sshMouse.containsMouse ? "#1b222c" : "transparent")
 
                                 function activate(): void {
-                                    actionProc.command = ["foot", "-e", "ssh", modelData]
+                                    actionProc.command = [
+                                        "sh",
+                                        "-lc",
+                                        "exec " + launcher.settingsState.terminal + " -e ssh " + JSON.stringify(modelData)
+                                    ]
                                     actionProc.running = true
                                     launcher.visible = false
                                 }
