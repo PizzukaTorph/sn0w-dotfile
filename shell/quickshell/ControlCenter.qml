@@ -135,9 +135,10 @@ FloatingWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 78
                     radius: 12
-                    color: "#171c23"
+                    color: vpnMouse.containsMouse ? "#202936" : "#171c23"
                     border.width: 1
                     border.color: panel.systemState && panel.systemState.vpnName !== "Off" ? "#59697c" : "#242c36"
+                    opacity: panel.systemState && (panel.systemState.vpnName !== "Off" || panel.systemState.vpnAvailableName.length > 0) ? 1.0 : 0.5
 
                     RowLayout {
                         anchors.fill: parent
@@ -150,12 +151,26 @@ FloatingWindow {
                             Text { text: "VPN"; color: "#f4f7fb"; font.pixelSize: 13; font.bold: true }
                             Text {
                                 Layout.fillWidth: true
-                                text: panel.systemState ? panel.systemState.vpnName : "…"
+                                text: panel.systemState
+                                      ? (panel.systemState.vpnName !== "Off"
+                                         ? panel.systemState.vpnName
+                                         : (panel.systemState.vpnAvailableName.length > 0
+                                            ? panel.systemState.vpnAvailableName + " · Off"
+                                            : "Unavailable"))
+                                      : "…"
                                 color: "#7d8998"
                                 font.pixelSize: 10
                                 elide: Text.ElideRight
                             }
                         }
+                    }
+                    MouseArea {
+                        id: vpnMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: panel.systemState && (panel.systemState.vpnName !== "Off" || panel.systemState.vpnAvailableName.length > 0)
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: if (panel.systemState) panel.systemState.toggleVpn()
                     }
                 }
 
