@@ -11,6 +11,6 @@
 - name: Link Hyprland configuration
   ansible.builtin.file:
     src: "{{ playbook_dir }}/../config/hypr"
-    dest: "{{ ansible_env.HOME }}/.config/hypr"
+    dest: "{{ ansible_facts['user_dir'] }}/.config/hypr"
     state: link
     force: true
