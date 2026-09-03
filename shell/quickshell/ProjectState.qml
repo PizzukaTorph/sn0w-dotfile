@@ -2,7 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-Scope {
+Item {
     id: root
 
     property var projects: []
