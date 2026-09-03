@@ -21,19 +21,18 @@ hl.config({
     },
 })
 
--- Launcher and app switcher are centered transient surfaces.
+-- Centered sn0w system surfaces stay outside the tiling tree.
 hl.window_rule({
-    name = "sn0w-centered-modals",
+    name = "sn0w-centered-surfaces",
     match = {
-        initial_title = "^sn0w (Launcher|App Switcher)$",
+        initial_title = "^sn0w (Launcher|App Switcher|Overview|Project Center)$",
     },
     float = true,
     center = true,
 })
 
--- Control Center and Power are popover-style surfaces. Keep them out of the
--- tiling tree, but do not center them: Quickshell will anchor them beneath the
--- corresponding topbar control.
+-- Control Center and Power are topbar-owned PopupWindows. Never tile them and
+-- never center them: Quickshell anchors them beneath the clicked control.
 hl.window_rule({
     name = "sn0w-topbar-popovers",
     match = {
@@ -52,6 +51,7 @@ end)
 hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
 hl.bind("SUPER + TAB", hl.dsp.exec_cmd("qs ipc call switcher cycle"))
 hl.bind("SUPER + UP", hl.dsp.exec_cmd("qs ipc call overview toggle"))
+hl.bind("SUPER + ALT + D", hl.dsp.exec_cmd("qs ipc call projects toggle"))
 hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 hl.bind("SUPER + SHIFT + RETURN", hl.dsp.exec_cmd(terminal))
 hl.bind("SUPER + E", hl.dsp.exec_cmd(fileManager))
