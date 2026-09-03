@@ -25,7 +25,7 @@ hl.config({
 hl.window_rule({
     name = "sn0w-centered-surfaces",
     match = {
-        initial_title = "^sn0w (Launcher|App Switcher|Overview|Project Center)$",
+        initial_title = "^sn0w (Launcher|App Switcher|Overview|Project Center|Settings)$",
     },
     float = true,
     center = true,
@@ -52,6 +52,7 @@ hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
 hl.bind("SUPER + TAB", hl.dsp.exec_cmd("qs ipc call switcher cycle"))
 hl.bind("SUPER + UP", hl.dsp.exec_cmd("qs ipc call overview toggle"))
 hl.bind("SUPER + ALT + D", hl.dsp.exec_cmd("qs ipc call projects toggle"))
+hl.bind("SUPER + COMMA", hl.dsp.exec_cmd("qs ipc call settings toggle"))
 hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 hl.bind("SUPER + SHIFT + RETURN", hl.dsp.exec_cmd(terminal))
 hl.bind("SUPER + E", hl.dsp.exec_cmd(fileManager))
