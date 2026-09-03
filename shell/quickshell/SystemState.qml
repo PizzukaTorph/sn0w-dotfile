@@ -42,7 +42,13 @@ Scope {
         let target = "balanced";
         if (powerProfile === "balanced") target = "performance";
         else if (powerProfile === "performance") target = "power-saver";
-        actionProc.command = ["powerprofilesctl", "set", target];
+        actionProc.command = [
+            "busctl", "set-property",
+            "org.freedesktop.UPower.PowerProfiles",
+            "/org/freedesktop/UPower/PowerProfiles",
+            "org.freedesktop.UPower.PowerProfiles",
+            "ActiveProfile", "s", target
+        ];
         actionProc.running = true;
     }
 
@@ -102,10 +108,19 @@ Scope {
 
     Process {
         id: profileProc
-        command: ["powerprofilesctl", "get"]
+        command: [
+            "busctl", "get-property",
+            "org.freedesktop.UPower.PowerProfiles",
+            "/org/freedesktop/UPower/PowerProfiles",
+            "org.freedesktop.UPower.PowerProfiles",
+            "ActiveProfile"
+        ]
         running: true
         stdout: StdioCollector {
-            onStreamFinished: root.powerProfile = text.trim().length > 0 ? text.trim() : "unknown"
+            onStreamFinished: {
+                const match = text.match(/\"([^\"]+)\"/);
+                root.powerProfile = match ? match[1] : "unknown";
+            }
         }
     }
 
