@@ -4,7 +4,7 @@
 local terminal = "foot"
 local fileManager = "nautilus"
 
--- Make the desktop identity explicit for portals and systemd user services.
+-- Make the desktop identity explicit for portals and session services.
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_TYPE", "wayland")
@@ -28,12 +28,13 @@ hl.config({
     },
 })
 
--- Fedora 44's xdg-desktop-portal is tied to graphical-session.target. Hyprland
--- is launched directly from a VT in sn0w, so establish that user-session
--- contract ourselves, export the live Wayland environment, then restart the
--- session-owned services against the correct compositor instance.
+-- Hyprland is the owner of the live Wayland session. Export its environment to
+-- the systemd user manager for portals, then launch Quickshell directly from
+-- this compositor process. This avoids a race where graphical-session.target
+-- starts the shell before WAYLAND_DISPLAY reaches the user manager.
 hl.on("hyprland.start", function()
-    hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all && systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH && systemctl --user start graphical-session.target && systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service && systemctl --user restart sn0w-shell.service'")
+    hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH; systemctl --user start graphical-session.target; systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service'")
+    hl.exec_cmd("sh -lc 'pkill -x qs 2>/dev/null || true; exec qs'")
 end)
 
 -- Core sn0w contracts.
