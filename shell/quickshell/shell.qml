@@ -20,8 +20,13 @@ ShellRoot {
         overviewVisible = false;
     }
 
+    SystemState {
+        id: systemState
+    }
+
     TopBar {
         mode: root.mode
+        systemState: systemState
         onLauncherRequested: {
             root.closeTransientSurfaces();
             root.launcherVisible = true;
@@ -39,7 +44,10 @@ ShellRoot {
     }
 
     Launcher { visible: root.launcherVisible }
-    ControlCenter { visible: root.controlCenterVisible }
+    ControlCenter {
+        visible: root.controlCenterVisible
+        systemState: systemState
+    }
     PowerMenu { visible: root.powerMenuVisible }
     AppSwitcher { visible: root.switcherVisible }
     Overview { visible: root.overviewVisible }
