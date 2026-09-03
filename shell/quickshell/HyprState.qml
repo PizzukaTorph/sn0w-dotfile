@@ -26,6 +26,18 @@ Scope {
         actionProc.running = true;
     }
 
+    function isShellSurface(client): bool {
+        const cls = String(client.class || "").toLowerCase();
+        const initialClass = String(client.initialClass || "").toLowerCase();
+        const title = String(client.title || "").toLowerCase();
+        const initialTitle = String(client.initialTitle || "").toLowerCase();
+
+        if (cls.indexOf("quickshell") >= 0 || initialClass.indexOf("quickshell") >= 0)
+            return true;
+
+        return title.indexOf("sn0w ") === 0 || initialTitle.indexOf("sn0w ") === 0;
+    }
+
     Process {
         id: clientsProc
         command: ["hyprctl", "-j", "clients"]
@@ -34,7 +46,11 @@ Scope {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text);
-                    root.clients = data.filter(c => c.mapped !== false && c.hidden !== true);
+                    root.clients = data.filter(c =>
+                        c.mapped !== false
+                        && c.hidden !== true
+                        && !root.isShellSurface(c)
+                    );
                 } catch (e) {
                     root.clients = [];
                 }
