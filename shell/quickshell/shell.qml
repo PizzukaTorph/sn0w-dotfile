@@ -54,8 +54,10 @@ ShellRoot {
     }
     PowerMenu { visible: root.powerMenuVisible }
     AppSwitcher {
+        id: appSwitcher
         visible: root.switcherVisible
         hyprState: hyprState
+        onVisibleChanged: root.switcherVisible = visible
     }
     Overview {
         visible: root.overviewVisible
@@ -74,7 +76,17 @@ ShellRoot {
     IpcHandler {
         target: "switcher"
         function toggle(): void { const next = !root.switcherVisible; root.closeTransientSurfaces(); root.switcherVisible = next; hyprState.refresh(); }
-        function open(): void { root.closeTransientSurfaces(); root.switcherVisible = true; hyprState.refresh(); }
+        function open(): void { root.closeTransientSurfaces(); root.switcherVisible = true; hyprState.refresh(); appSwitcher.resetAndShow(); }
+        function cycle(): void {
+            if (!root.switcherVisible) {
+                root.closeTransientSurfaces();
+                root.switcherVisible = true;
+                hyprState.refresh();
+                appSwitcher.resetAndShow();
+            } else {
+                appSwitcher.cycle();
+            }
+        }
         function close(): void { root.switcherVisible = false; }
     }
 
