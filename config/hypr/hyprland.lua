@@ -21,6 +21,19 @@ hl.config({
     },
 })
 
+-- Compact sn0w shell surfaces behave like system modals, not application
+-- windows: keep them out of the tiling tree and center them on the active
+-- monitor. Overview is intentionally excluded because it is a workspace-level
+-- surface rather than a compact modal.
+hl.window_rule({
+    name = "sn0w-shell-modals",
+    match = {
+        initial_title = "^sn0w (Launcher|App Switcher|Control Center|Power)$",
+    },
+    float = true,
+    center = true,
+})
+
 hl.on("hyprland.start", function()
     hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH; systemctl --user start graphical-session.target; systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service'")
     hl.exec_cmd("sh -lc 'pkill -x qs 2>/dev/null || true; exec qs'")
