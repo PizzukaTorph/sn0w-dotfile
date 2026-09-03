@@ -10,8 +10,6 @@ FloatingWindow {
     implicitHeight: 230
     title: "sn0w Capture"
 
-    property string picturesDir: StandardPaths.writableLocation(StandardPaths.PicturesLocation)
-
     function run(command: string): void {
         captureProc.command = ["sh", "-lc", command];
         captureProc.running = true;
