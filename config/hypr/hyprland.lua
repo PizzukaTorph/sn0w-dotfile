@@ -21,17 +21,25 @@ hl.config({
     },
 })
 
--- Compact sn0w shell surfaces behave like system modals, not application
--- windows: keep them out of the tiling tree and center them on the active
--- monitor. Overview is intentionally excluded because it is a workspace-level
--- surface rather than a compact modal.
+-- Launcher and app switcher are centered transient surfaces.
 hl.window_rule({
-    name = "sn0w-shell-modals",
+    name = "sn0w-centered-modals",
     match = {
-        initial_title = "^sn0w (Launcher|App Switcher|Control Center|Power)$",
+        initial_title = "^sn0w (Launcher|App Switcher)$",
     },
     float = true,
     center = true,
+})
+
+-- Control Center and Power are popover-style surfaces. Keep them out of the
+-- tiling tree, but do not center them: Quickshell will anchor them beneath the
+-- corresponding topbar control.
+hl.window_rule({
+    name = "sn0w-topbar-popovers",
+    match = {
+        initial_title = "^sn0w (Control Center|Power)$",
+    },
+    float = true,
 })
 
 hl.on("hyprland.start", function()
@@ -53,12 +61,13 @@ hl.bind("SUPER + SHIFT + 3", hl.dsp.exec_cmd("sh -lc 'mkdir -p ~/Pictures/Screen
 hl.bind("SUPER + SHIFT + 4", hl.dsp.exec_cmd("sh -lc 'mkdir -p ~/Pictures/Screenshots; grim -g \"$(slurp)\" ~/Pictures/Screenshots/sn0w-$(date +%Y%m%d-%H%M%S).png'"))
 hl.bind("SUPER + SHIFT + 5", hl.dsp.exec_cmd("qs ipc call capture toggle"))
 
--- Media keys. PipeWire/playerctl own the state; Quickshell owns presentation.
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("sh -lc 'wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd volume ${v:-0}'"))
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("sh -lc 'wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd volume ${v:-0}'"))
-hl.bind("XF86AudioMute", hl.dsp.exec_cmd("sh -lc 'wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle; v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk \"{printf \\\"%d\\\", \\\$2*100}\"); qs ipc call osd mute ${v:-0}'"))
-hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("sh -lc 'brightnessctl set +5% >/dev/null 2>&1 || exit 0; v=$(brightnessctl -m | awk -F, \"{gsub(/%/,\\\"\\\",\\\$4); print \\\$4}\"); qs ipc call osd brightness ${v:-0}'"))
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("sh -lc 'brightnessctl set 5%- >/dev/null 2>&1 || exit 0; v=$(brightnessctl -m | awk -F, \"{gsub(/%/,\\\"\\\",\\\$4); print \\\$4}\"); qs ipc call osd brightness ${v:-0}'"))
+-- Media keys. Keep shell commands deliberately simple; Quickshell owns state
+-- presentation and derives the next value from SystemState.
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("qs ipc call osd volumeUp"))
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("qs ipc call osd volumeDown"))
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("qs ipc call osd muteToggle"))
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("qs ipc call osd brightnessUp"))
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("qs ipc call osd brightnessDown"))
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"))
 hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"))
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"))
