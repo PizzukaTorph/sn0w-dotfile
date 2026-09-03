@@ -8,52 +8,49 @@ ShellRoot {
     property bool launcherVisible: false
     property bool controlCenterVisible: false
     property bool powerMenuVisible: false
+    property bool switcherVisible: false
+    property bool overviewVisible: false
     property string mode: "General"
 
     function closeTransientSurfaces(): void {
         launcherVisible = false;
         controlCenterVisible = false;
         powerMenuVisible = false;
+        switcherVisible = false;
+        overviewVisible = false;
     }
 
     TopBar {
         mode: root.mode
         onLauncherRequested: {
-            root.controlCenterVisible = false;
-            root.powerMenuVisible = false;
-            root.launcherVisible = !root.launcherVisible;
+            root.closeTransientSurfaces();
+            root.launcherVisible = true;
         }
         onControlCenterRequested: {
-            root.launcherVisible = false;
-            root.powerMenuVisible = false;
-            root.controlCenterVisible = !root.controlCenterVisible;
+            const next = !root.controlCenterVisible;
+            root.closeTransientSurfaces();
+            root.controlCenterVisible = next;
         }
         onPowerRequested: {
-            root.launcherVisible = false;
-            root.controlCenterVisible = false;
-            root.powerMenuVisible = !root.powerMenuVisible;
+            const next = !root.powerMenuVisible;
+            root.closeTransientSurfaces();
+            root.powerMenuVisible = next;
         }
     }
 
-    Launcher {
-        visible: root.launcherVisible
-    }
-
-    ControlCenter {
-        visible: root.controlCenterVisible
-    }
-
-    PowerMenu {
-        visible: root.powerMenuVisible
-    }
+    Launcher { visible: root.launcherVisible }
+    ControlCenter { visible: root.controlCenterVisible }
+    PowerMenu { visible: root.powerMenuVisible }
+    AppSwitcher { visible: root.switcherVisible }
+    Overview { visible: root.overviewVisible }
 
     IpcHandler {
         target: "launcher"
 
         function toggle(): void {
-            root.controlCenterVisible = false;
-            root.powerMenuVisible = false;
-            root.launcherVisible = !root.launcherVisible;
+            const next = !root.launcherVisible;
+            root.closeTransientSurfaces();
+            root.launcherVisible = next;
         }
 
         function open(): void {
@@ -67,12 +64,50 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "switcher"
+
+        function toggle(): void {
+            const next = !root.switcherVisible;
+            root.closeTransientSurfaces();
+            root.switcherVisible = next;
+        }
+
+        function open(): void {
+            root.closeTransientSurfaces();
+            root.switcherVisible = true;
+        }
+
+        function close(): void {
+            root.switcherVisible = false;
+        }
+    }
+
+    IpcHandler {
+        target: "overview"
+
+        function toggle(): void {
+            const next = !root.overviewVisible;
+            root.closeTransientSurfaces();
+            root.overviewVisible = next;
+        }
+
+        function open(): void {
+            root.closeTransientSurfaces();
+            root.overviewVisible = true;
+        }
+
+        function close(): void {
+            root.overviewVisible = false;
+        }
+    }
+
+    IpcHandler {
         target: "controlcenter"
 
         function toggle(): void {
-            root.launcherVisible = false;
-            root.powerMenuVisible = false;
-            root.controlCenterVisible = !root.controlCenterVisible;
+            const next = !root.controlCenterVisible;
+            root.closeTransientSurfaces();
+            root.controlCenterVisible = next;
         }
 
         function open(): void {
@@ -89,9 +124,9 @@ ShellRoot {
         target: "power"
 
         function toggle(): void {
-            root.launcherVisible = false;
-            root.controlCenterVisible = false;
-            root.powerMenuVisible = !root.powerMenuVisible;
+            const next = !root.powerMenuVisible;
+            root.closeTransientSurfaces();
+            root.powerMenuVisible = next;
         }
 
         function close(): void {
