@@ -43,8 +43,9 @@ Apple Virtualization Framework in the current UTM test environment exposes `zwp_
 
 - [x] Quickshell V0 entrypoint
 - [x] topbar V0
-- [x] launcher V0 surface + IPC toggle
-- [ ] launcher desktop-entry index + fuzzy search
+- [x] launcher surface + IPC toggle
+- [x] launcher desktop-entry index + basic filtering
+- [ ] launcher ranking / fuzzy scoring / keyboard navigation
 - [ ] app switcher
 - [ ] toast notifications
 - [ ] OSD
