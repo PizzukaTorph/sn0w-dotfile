@@ -22,6 +22,7 @@
   ansible.builtin.dnf:
     name:
       - hyprland
+      - hyprland-guiutils
       - hypridle
       - hyprlock
       - xdg-desktop-portal-hyprland
