@@ -10,6 +10,8 @@ ShellRoot {
     property bool powerMenuVisible: false
     property bool switcherVisible: false
     property bool overviewVisible: false
+    property bool clipboardVisible: false
+    property bool captureVisible: false
     property string mode: "General"
 
     function closeTransientSurfaces(): void {
@@ -18,10 +20,13 @@ ShellRoot {
         powerMenuVisible = false;
         switcherVisible = false;
         overviewVisible = false;
+        clipboardVisible = false;
+        captureVisible = false;
     }
 
     SystemState { id: systemState }
     HyprState { id: hyprState }
+    OSD { id: osd }
 
     TopBar {
         mode: root.mode
@@ -56,6 +61,8 @@ ShellRoot {
         visible: root.overviewVisible
         hyprState: hyprState
     }
+    ClipboardHistory { visible: root.clipboardVisible }
+    CapturePanel { visible: root.captureVisible }
 
     IpcHandler {
         target: "launcher"
@@ -89,6 +96,27 @@ ShellRoot {
         target: "power"
         function toggle(): void { const next = !root.powerMenuVisible; root.closeTransientSurfaces(); root.powerMenuVisible = next; }
         function close(): void { root.powerMenuVisible = false; }
+    }
+
+    IpcHandler {
+        target: "clipboard"
+        function toggle(): void { const next = !root.clipboardVisible; root.closeTransientSurfaces(); root.clipboardVisible = next; }
+        function open(): void { root.closeTransientSurfaces(); root.clipboardVisible = true; }
+        function close(): void { root.clipboardVisible = false; }
+    }
+
+    IpcHandler {
+        target: "capture"
+        function toggle(): void { const next = !root.captureVisible; root.closeTransientSurfaces(); root.captureVisible = next; }
+        function open(): void { root.closeTransientSurfaces(); root.captureVisible = true; }
+        function close(): void { root.captureVisible = false; }
+    }
+
+    IpcHandler {
+        target: "osd"
+        function volume(value: int): void { osd.showValue("volume", value, false); }
+        function mute(value: int): void { osd.showValue("volume", value, true); }
+        function brightness(value: int): void { osd.showValue("brightness", value, false); }
     }
 
     IpcHandler {
