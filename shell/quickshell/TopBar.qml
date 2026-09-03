@@ -8,8 +8,6 @@ Scope {
     property string mode: "General"
     property var systemState
     signal launcherRequested()
-    signal controlCenterRequested()
-    signal powerRequested()
 
     SystemClock {
         id: clock
@@ -20,6 +18,7 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
+            id: barWindow
             required property var modelData
             screen: modelData
 
@@ -54,26 +53,9 @@ Scope {
                             id: brandRow
                             anchors.centerIn: parent
                             spacing: 8
-
-                            Text {
-                                text: "sn0w"
-                                color: "#f4f7fb"
-                                font.pixelSize: 14
-                                font.bold: true
-                            }
-
-                            Rectangle {
-                                width: 4
-                                height: 4
-                                radius: 2
-                                color: "#7d8998"
-                            }
-
-                            Text {
-                                text: root.mode
-                                color: "#9aa5b4"
-                                font.pixelSize: 12
-                            }
+                            Text { text: "sn0w"; color: "#f4f7fb"; font.pixelSize: 14; font.bold: true }
+                            Rectangle { width: 4; height: 4; radius: 2; color: "#7d8998" }
+                            Text { text: root.mode; color: "#9aa5b4"; font.pixelSize: 12 }
                         }
 
                         MouseArea {
@@ -103,10 +85,11 @@ Scope {
                     }
 
                     Rectangle {
+                        id: controlButton
                         Layout.preferredWidth: clockText.implicitWidth + 16
                         Layout.preferredHeight: 26
                         radius: 8
-                        color: controlMouse.containsMouse ? "#1b222c" : "transparent"
+                        color: controlMouse.containsMouse || controlPopup.visible ? "#1b222c" : "transparent"
 
                         Text {
                             id: clockText
@@ -120,31 +103,62 @@ Scope {
                             id: controlMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: root.controlCenterRequested()
+                            onClicked: {
+                                powerPopup.visible = false;
+                                controlPopup.visible = !controlPopup.visible;
+                            }
                         }
                     }
 
                     Rectangle {
+                        id: powerButton
                         Layout.preferredWidth: 28
                         Layout.preferredHeight: 26
                         radius: 8
-                        color: powerMouse.containsMouse ? "#322027" : "transparent"
+                        color: powerMouse.containsMouse || powerPopup.visible ? "#322027" : "transparent"
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "⏻"
-                            color: "#b9c2ce"
-                            font.pixelSize: 14
-                        }
+                        Text { anchors.centerIn: parent; text: "⏻"; color: "#b9c2ce"; font.pixelSize: 14 }
 
                         MouseArea {
                             id: powerMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: root.powerRequested()
+                            onClicked: {
+                                controlPopup.visible = false;
+                                powerPopup.visible = !powerPopup.visible;
+                            }
                         }
                     }
                 }
+            }
+
+            PopupWindow {
+                id: controlPopup
+                anchor.item: controlButton
+                anchor.edges: Edges.Bottom | Edges.Right
+                anchor.gravity: Edges.Bottom | Edges.Left
+                anchor.margins.top: 8
+                implicitWidth: 410
+                implicitHeight: 500
+                visible: false
+
+                ControlCenterContent {
+                    anchors.fill: parent
+                    systemState: root.systemState
+                }
+            }
+
+            PopupWindow {
+                id: powerPopup
+                anchor.item: powerButton
+                anchor.edges: Edges.Bottom | Edges.Right
+                anchor.gravity: Edges.Bottom | Edges.Left
+                anchor.margins.top: 8
+                implicitWidth: 320
+                implicitHeight: 230
+                visible: false
+
+                PowerMenuContent { anchors.fill: parent }
             }
         }
     }
