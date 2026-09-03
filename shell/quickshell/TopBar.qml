@@ -6,6 +6,7 @@ Scope {
     id: root
 
     property string mode: "General"
+    property var systemState
     signal launcherRequested()
     signal controlCenterRequested()
     signal powerRequested()
@@ -84,6 +85,22 @@ Scope {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Text {
+                        visible: root.systemState !== undefined && root.systemState !== null
+                        text: root.systemState && root.systemState.wifiEnabled
+                              ? (root.systemState.wifiName === "Disconnected" ? "Wi-Fi" : root.systemState.wifiName)
+                              : "Wi-Fi off"
+                        color: "#8f9aaa"
+                        font.pixelSize: 10
+                    }
+
+                    Text {
+                        visible: root.systemState !== undefined && root.systemState !== null
+                        text: root.systemState ? root.systemState.battery : ""
+                        color: "#8f9aaa"
+                        font.pixelSize: 10
+                    }
 
                     Rectangle {
                         Layout.preferredWidth: clockText.implicitWidth + 16
