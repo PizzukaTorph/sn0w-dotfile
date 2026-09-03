@@ -5,8 +5,10 @@ import QtQuick.Layouts
 FloatingWindow {
     id: overview
 
+    required property var hyprState
+
     title: "sn0w Overview"
-    implicitWidth: 900
+    implicitWidth: 920
     implicitHeight: 560
 
     Rectangle {
@@ -32,7 +34,7 @@ FloatingWindow {
                     }
 
                     Text {
-                        text: "Where you're working"
+                        text: hyprState.workspaces.length + " active workspaces · " + hyprState.clients.length + " windows"
                         color: "#7d8998"
                         font.pixelSize: 12
                     }
@@ -55,21 +57,19 @@ FloatingWindow {
                 rowSpacing: 16
 
                 Repeater {
-                    model: [
-                        { title: "General", hint: "Everyday workspace" },
-                        { title: "Project", hint: "Active development session" },
-                        { title: "Activity", hint: "Media · Gaming · Social" },
-                        { title: "Scratch", hint: "Temporary windows" }
-                    ]
+                    model: hyprState.workspaces
 
                     delegate: Rectangle {
                         required property var modelData
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        Layout.minimumHeight: 160
                         radius: 16
-                        color: overviewMouse.containsMouse ? "#1b222c" : "#14191f"
-                        border.width: 1
-                        border.color: "#29313c"
+                        color: modelData.id === hyprState.activeWorkspace
+                            ? "#1b222c"
+                            : (overviewMouse.containsMouse ? "#181e25" : "#14191f")
+                        border.width: modelData.id === hyprState.activeWorkspace ? 2 : 1
+                        border.color: modelData.id === hyprState.activeWorkspace ? "#657283" : "#29313c"
 
                         ColumnLayout {
                             anchors.fill: parent
@@ -80,7 +80,9 @@ FloatingWindow {
                                 Layout.fillWidth: true
 
                                 Text {
-                                    text: modelData.title
+                                    text: modelData.name && modelData.name.length > 0
+                                        ? modelData.name
+                                        : "Workspace " + modelData.id
                                     color: "#f4f7fb"
                                     font.pixelSize: 16
                                     font.bold: true
@@ -92,12 +94,12 @@ FloatingWindow {
                                     width: 8
                                     height: 8
                                     radius: 4
-                                    color: "#7d8998"
+                                    color: modelData.id === hyprState.activeWorkspace ? "#dce3ec" : "#596474"
                                 }
                             }
 
                             Text {
-                                text: modelData.hint
+                                text: (modelData.windows || 0) + " windows"
                                 color: "#697586"
                                 font.pixelSize: 11
                             }
@@ -112,11 +114,24 @@ FloatingWindow {
                                 border.width: 1
                                 border.color: "#202630"
 
-                                Text {
+                                ColumnLayout {
                                     anchors.centerIn: parent
-                                    text: "live window preview"
-                                    color: "#46515f"
-                                    font.pixelSize: 10
+                                    spacing: 4
+
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: modelData.id === hyprState.activeWorkspace ? "ACTIVE" : "OPEN"
+                                        color: modelData.id === hyprState.activeWorkspace ? "#dce3ec" : "#697586"
+                                        font.pixelSize: 10
+                                        font.bold: true
+                                    }
+
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: "Workspace " + modelData.id
+                                        color: "#46515f"
+                                        font.pixelSize: 10
+                                    }
                                 }
                             }
                         }
@@ -125,9 +140,21 @@ FloatingWindow {
                             id: overviewMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            onClicked: {
+                                hyprState.focusWorkspace(modelData.id);
+                                overview.visible = false;
+                            }
                         }
                     }
                 }
+            }
+
+            Text {
+                visible: hyprState.workspaces.length === 0
+                Layout.alignment: Qt.AlignHCenter
+                text: "No Hyprland workspaces reported"
+                color: "#596474"
+                font.pixelSize: 11
             }
         }
     }
