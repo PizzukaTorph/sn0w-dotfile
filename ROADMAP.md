@@ -22,18 +22,29 @@
 - [x] minimal bootstrap script
 - [x] initial package/service roles
 - [x] dotfile linking model
-- [ ] validate package names on target Fedora release
+- [x] validate package names on Fedora 44 aarch64
+- [x] run bootstrap from clean Fedora 44 aarch64 install
+- [x] Quickshell package/runtime validation
+- [x] Docker / Compose validation
+- [x] document Mac UTM graphics limitation
 - [ ] boot generic Fedora VM on S0N
-- [ ] run bootstrap from clean install
-- [ ] reach Hyprland session
+- [ ] reach Hyprland graphical session on DRM/KMS-capable host
 - [ ] make Quickshell V0 visible
 - [ ] validate Ghostty and Nautilus
 - [ ] validate PipeWire / NetworkManager integration
 
+### Milestone 1A — ARM64 provisioning — COMPLETE
+
+Fedora 44 aarch64 converges from a clean install with zero Ansible failures. Hyprland 0.56.x, Fedora Quickshell 0.2.1 Qt rebuild, Docker, Compose and dotfile links are installed reproducibly.
+
+Apple Virtualization Framework in the current UTM test environment exposes `zwp_linux_dmabuf_v1` v3 while the Hyprland/Aquamarine stack requests v4, causing backend creation to fail before a graphical Hyprland session starts. This is treated as a VM graphics limitation, not as a sn0w provisioning failure. Graphical development moves to S0N/KVM or physical Asahi hardware.
+
 ## Milestone 2 — Core shell
 
-- [ ] topbar
-- [ ] launcher
+- [x] Quickshell V0 entrypoint
+- [x] topbar V0
+- [x] launcher V0 surface + IPC toggle
+- [ ] launcher desktop-entry index + fuzzy search
 - [ ] app switcher
 - [ ] toast notifications
 - [ ] OSD
