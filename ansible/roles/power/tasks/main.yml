@@ -3,7 +3,22 @@
   ansible.builtin.dnf:
     name:
       - upower
+      - tuned
       - tuned-ppd
       - brightnessctl
     state: present
+  become: true
+
+- name: Enable TuneD
+  ansible.builtin.systemd_service:
+    name: tuned
+    enabled: true
+    state: started
+  become: true
+
+- name: Enable TuneD PPD compatibility daemon
+  ansible.builtin.systemd_service:
+    name: tuned-ppd
+    enabled: true
+    state: started
   become: true
