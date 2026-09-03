@@ -1,11 +1,32 @@
 ---
+- name: Install DNF5 COPR plugin
+  ansible.builtin.dnf:
+    name: dnf5-plugins
+    state: present
+  become: true
+
+- name: Check whether sn0w Hyprland COPR is enabled
+  ansible.builtin.command: dnf5 copr list
+  register: hyprland_copr_list
+  changed_when: false
+  failed_when: false
+
+- name: Enable Hyprland COPR with Fedora 44 aarch64 builds
+  ansible.builtin.command: dnf5 -y copr enable nett00n/hyprland
+  become: true
+  when: "'nett00n/hyprland' not in hyprland_copr_list.stdout"
+  register: hyprland_copr_enable
+  changed_when: hyprland_copr_enable.rc == 0
+
 - name: Install Hyprland runtime packages
   ansible.builtin.dnf:
     name:
       - hyprland
       - hypridle
       - hyprlock
+      - xdg-desktop-portal-hyprland
     state: present
+    update_cache: true
   become: true
 
 - name: Link Hyprland configuration
