@@ -18,96 +18,141 @@ Scope {
     property string ipAddress: "—"
 
     function refresh(): void {
-        if (!statusProc.running)
-            statusProc.running = true;
-    }
-
-    function run(command: string): void {
-        actionProc.command = ["sh", "-lc", command];
-        actionProc.running = true;
+        if (!wifiProc.running) wifiProc.running = true;
+        if (!ssidProc.running) ssidProc.running = true;
+        if (!btProc.running) btProc.running = true;
+        if (!profileProc.running) profileProc.running = true;
+        if (!volumeProc.running) volumeProc.running = true;
+        if (!brightnessProc.running) brightnessProc.running = true;
+        if (!hostProc.running) hostProc.running = true;
+        if (!ipProc.running) ipProc.running = true;
     }
 
     function toggleWifi(): void {
-        run("nmcli radio wifi " + (wifiEnabled ? "off" : "on"));
+        actionProc.command = ["nmcli", "radio", "wifi", wifiEnabled ? "off" : "on"];
+        actionProc.running = true;
     }
 
     function toggleBluetooth(): void {
-        run("bluetoothctl power " + (bluetoothPowered ? "off" : "on"));
+        actionProc.command = ["bluetoothctl", "power", bluetoothPowered ? "off" : "on"];
+        actionProc.running = true;
     }
 
     function cyclePowerProfile(): void {
         let target = "balanced";
-        if (powerProfile === "balanced")
-            target = "performance";
-        else if (powerProfile === "performance")
-            target = "power-saver";
-        run("powerprofilesctl set " + target);
+        if (powerProfile === "balanced") target = "performance";
+        else if (powerProfile === "performance") target = "power-saver";
+        actionProc.command = ["powerprofilesctl", "set", target];
+        actionProc.running = true;
     }
 
     function setVolume(percent: int): void {
         const safe = Math.max(0, Math.min(100, percent));
-        run("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + safe + "%");
+        actionProc.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", safe + "%"];
+        actionProc.running = true;
     }
 
     function toggleMute(): void {
-        run("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle");
+        actionProc.command = ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"];
+        actionProc.running = true;
     }
 
     function setBrightness(percent: int): void {
-        if (brightness < 0)
-            return;
+        if (brightness < 0) return;
         const safe = Math.max(1, Math.min(100, percent));
-        run("brightnessctl set " + safe + "%");
+        actionProc.command = ["brightnessctl", "set", safe + "%"];
+        actionProc.running = true;
     }
 
     Process {
-        id: statusProc
-        command: ["sh", "-lc", """
-            wifi=$(nmcli radio wifi 2>/dev/null || echo disabled)
-            ssid=$(nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | awk -F: '$1 == \"yes\" {sub(/^yes:/, \"\"); print; exit}')
-            [ -n \"$ssid\" ] || ssid=Disconnected
-            bt=$(bluetoothctl show 2>/dev/null | awk '/Powered:/ {print $2; exit}')
-            [ -n \"$bt\" ] || bt=no
-            vpn=$(nmcli -t -f TYPE,NAME connection show --active 2>/dev/null | awk -F: '$1 == \"wireguard\" || $1 == \"vpn\" {print $2; exit}')
-            [ -n \"$vpn\" ] || vpn=Off
-            profile=$(powerprofilesctl get 2>/dev/null || echo unknown)
-            vol=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || true)
-            voln=$(printf '%s' \"$vol\" | awk '{printf \"%d\", $2 * 100}')
-            [ -n \"$voln\" ] || voln=0
-            case \"$vol\" in *MUTED*) mute=yes ;; *) mute=no ;; esac
-            bright=$(brightnessctl -m 2>/dev/null | awk -F, 'NR == 1 {gsub(/%/, \"\", $4); print $4}')
-            [ -n \"$bright\" ] || bright=-1
-            bat=$(for b in /sys/class/power_supply/BAT*; do [ -r \"$b/capacity\" ] && { cat \"$b/capacity\"; break; }; done)
-            [ -n \"$bat\" ] && bat=\"${bat}%\" || bat=AC
-            host=$(hostname 2>/dev/null || echo sn0w)
-            ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-            [ -n \"$ip\" ] || ip='—'
-            printf 'wifi=%s\nssid=%s\nbt=%s\nvpn=%s\nprofile=%s\nvolume=%s\nmute=%s\nbrightness=%s\nbattery=%s\nhost=%s\nip=%s\n' \
-                \"$wifi\" \"$ssid\" \"$bt\" \"$vpn\" \"$profile\" \"$voln\" \"$mute\" \"$bright\" \"$bat\" \"$host\" \"$ip\"
-        """]
+        id: wifiProc
+        command: ["nmcli", "radio", "wifi"]
         running: true
+        stdout: StdioCollector {
+            onStreamFinished: root.wifiEnabled = text.trim() === "enabled"
+        }
+    }
 
+    Process {
+        id: ssidProc
+        command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]
+        running: true
         stdout: StdioCollector {
             onStreamFinished: {
-                const lines = text.trim().split("\n");
-                for (const line of lines) {
-                    const split = line.indexOf("=");
-                    if (split < 0)
-                        continue;
-                    const key = line.slice(0, split);
-                    const value = line.slice(split + 1);
-                    if (key === "wifi") root.wifiEnabled = value === "enabled";
-                    else if (key === "ssid") root.wifiName = value;
-                    else if (key === "bt") root.bluetoothPowered = value === "yes";
-                    else if (key === "vpn") root.vpnName = value;
-                    else if (key === "profile") root.powerProfile = value;
-                    else if (key === "volume") root.volume = Number(value);
-                    else if (key === "mute") root.muted = value === "yes";
-                    else if (key === "brightness") root.brightness = Number(value);
-                    else if (key === "battery") root.battery = value;
-                    else if (key === "host") root.hostName = value;
-                    else if (key === "ip") root.ipAddress = value;
+                const rows = text.trim().split("\n");
+                root.wifiName = "Disconnected";
+                for (const row of rows) {
+                    if (row.indexOf("yes:") === 0) {
+                        root.wifiName = row.slice(4);
+                        break;
+                    }
                 }
+            }
+        }
+    }
+
+    Process {
+        id: btProc
+        command: ["bluetoothctl", "show"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: root.bluetoothPowered = text.indexOf("Powered: yes") >= 0
+        }
+    }
+
+    Process {
+        id: profileProc
+        command: ["powerprofilesctl", "get"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: root.powerProfile = text.trim().length > 0 ? text.trim() : "unknown"
+        }
+    }
+
+    Process {
+        id: volumeProc
+        command: ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const match = text.match(/Volume:\s+([0-9.]+)/);
+                root.volume = match ? Math.round(Number(match[1]) * 100) : 0;
+                root.muted = text.indexOf("MUTED") >= 0;
+            }
+        }
+    }
+
+    Process {
+        id: brightnessProc
+        command: ["brightnessctl", "-m"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const fields = text.trim().split(",");
+                root.brightness = fields.length >= 4 ? Number(fields[3].replace("%", "")) : -1;
+            }
+        }
+    }
+
+    Process {
+        id: hostProc
+        command: ["hostname"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.trim().length > 0) root.hostName = text.trim();
+            }
+        }
+    }
+
+    Process {
+        id: ipProc
+        command: ["hostname", "-I"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const addresses = text.trim().split(/\s+/);
+                root.ipAddress = addresses.length > 0 && addresses[0].length > 0 ? addresses[0] : "—";
             }
         }
     }
@@ -115,14 +160,13 @@ Scope {
     Process {
         id: actionProc
         onRunningChanged: {
-            if (!running)
-                refreshTimer.restart();
+            if (!running) refreshTimer.restart();
         }
     }
 
     Timer {
         id: refreshTimer
-        interval: 700
+        interval: 500
         onTriggered: root.refresh()
     }
 
