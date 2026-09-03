@@ -27,12 +27,6 @@
       when: sn0w_profile == 'asahi'
 
   post_tasks:
-    - name: Enable sn0w user services
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        scope: user
-        enabled: true
-        daemon_reload: true
-      loop:
-        - sn0w-shell.service
-      become: false
+    - name: Provisioning completed
+      ansible.builtin.debug:
+        msg: "sn0w {{ sn0w_profile }} profile converged; component-owned user services are enabled by their roles when available."
