@@ -5,7 +5,10 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/env quickshell -p %h/.config/quickshell
+# sn0w owns one Quickshell instance per graphical session. Kill accidental
+# manually-started duplicates before systemd takes ownership.
+ExecStartPre=-/usr/bin/pkill -x qs
+ExecStart=/usr/bin/qs
 Restart=on-failure
 RestartSec=2
 
