@@ -1,13 +1,16 @@
 import Quickshell
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 FloatingWindow {
     id: panel
 
+    property var systemState
+
     title: "sn0w Control Center"
-    implicitWidth: 390
-    implicitHeight: 510
+    implicitWidth: 410
+    implicitHeight: 560
 
     Rectangle {
         anchors.fill: parent
@@ -19,7 +22,7 @@ FloatingWindow {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 18
-            spacing: 14
+            spacing: 13
 
             RowLayout {
                 Layout.fillWidth: true
@@ -35,7 +38,9 @@ FloatingWindow {
                     }
 
                     Text {
-                        text: "sn0w system controls"
+                        text: panel.systemState
+                              ? panel.systemState.hostName + " · " + panel.systemState.ipAddress
+                              : "sn0w"
                         color: "#697586"
                         font.pixelSize: 11
                     }
@@ -43,11 +48,10 @@ FloatingWindow {
 
                 Item { Layout.fillWidth: true }
 
-                Rectangle {
-                    width: 9
-                    height: 9
-                    radius: 5
-                    color: "#7d8998"
+                Text {
+                    text: panel.systemState ? panel.systemState.battery : ""
+                    color: "#aab4c2"
+                    font.pixelSize: 12
                 }
             }
 
@@ -57,67 +61,185 @@ FloatingWindow {
                 columnSpacing: 10
                 rowSpacing: 10
 
-                Repeater {
-                    model: [
-                        { title: "Wi-Fi", value: "NetworkManager", glyph: "⌁" },
-                        { title: "Bluetooth", value: "Devices", glyph: "ᛒ" },
-                        { title: "VPN", value: "WireGuard", glyph: "◈" },
-                        { title: "Power", value: "Balanced", glyph: "◐" }
-                    ]
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 78
+                    radius: 12
+                    color: wifiMouse.containsMouse ? "#202936" : "#171c23"
+                    border.width: 1
+                    border.color: panel.systemState && panel.systemState.wifiEnabled ? "#59697c" : "#242c36"
 
-                    delegate: Rectangle {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 78
-                        radius: 12
-                        color: tileMouse.containsMouse ? "#1b222c" : "#171c23"
-                        border.width: 1
-                        border.color: "#242c36"
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 12
-                            spacing: 10
-
-                            Rectangle {
-                                Layout.preferredWidth: 34
-                                Layout.preferredHeight: 34
-                                radius: 10
-                                color: "#252d38"
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: modelData.glyph
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 16
-                                }
-                            }
-
-                            ColumnLayout {
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
+                        Text { text: "⌁"; color: "#f4f7fb"; font.pixelSize: 19 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Text { text: "Wi-Fi"; color: "#f4f7fb"; font.pixelSize: 13; font.bold: true }
+                            Text {
                                 Layout.fillWidth: true
-                                spacing: 1
-
-                                Text {
-                                    text: modelData.title
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                }
-
-                                Text {
-                                    text: modelData.value
-                                    color: "#7d8998"
-                                    font.pixelSize: 10
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
-                                }
+                                text: panel.systemState
+                                      ? (panel.systemState.wifiEnabled ? panel.systemState.wifiName : "Off")
+                                      : "…"
+                                color: "#7d8998"
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
                             }
                         }
+                    }
+                    MouseArea {
+                        id: wifiMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: if (panel.systemState) panel.systemState.toggleWifi()
+                    }
+                }
 
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 78
+                    radius: 12
+                    color: btMouse.containsMouse ? "#202936" : "#171c23"
+                    border.width: 1
+                    border.color: panel.systemState && panel.systemState.bluetoothPowered ? "#59697c" : "#242c36"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
+                        Text { text: "ᛒ"; color: "#f4f7fb"; font.pixelSize: 17 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Text { text: "Bluetooth"; color: "#f4f7fb"; font.pixelSize: 13; font.bold: true }
+                            Text {
+                                text: panel.systemState && panel.systemState.bluetoothPowered ? "On" : "Off"
+                                color: "#7d8998"
+                                font.pixelSize: 10
+                            }
+                        }
+                    }
+                    MouseArea {
+                        id: btMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: if (panel.systemState) panel.systemState.toggleBluetooth()
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 78
+                    radius: 12
+                    color: "#171c23"
+                    border.width: 1
+                    border.color: panel.systemState && panel.systemState.vpnName !== "Off" ? "#59697c" : "#242c36"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
+                        Text { text: "◈"; color: "#f4f7fb"; font.pixelSize: 17 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Text { text: "VPN"; color: "#f4f7fb"; font.pixelSize: 13; font.bold: true }
+                            Text {
+                                Layout.fillWidth: true
+                                text: panel.systemState ? panel.systemState.vpnName : "…"
+                                color: "#7d8998"
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 78
+                    radius: 12
+                    color: powerMouse.containsMouse ? "#202936" : "#171c23"
+                    border.width: 1
+                    border.color: "#242c36"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 10
+                        Text { text: "◐"; color: "#f4f7fb"; font.pixelSize: 17 }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            Text { text: "Power"; color: "#f4f7fb"; font.pixelSize: 13; font.bold: true }
+                            Text {
+                                Layout.fillWidth: true
+                                text: panel.systemState ? panel.systemState.powerProfile : "…"
+                                color: "#7d8998"
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                    MouseArea {
+                        id: powerMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: if (panel.systemState) panel.systemState.cyclePowerProfile()
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 94
+                radius: 12
+                color: "#171c23"
+                border.width: 1
+                border.color: "#242c36"
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 6
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: panel.systemState && panel.systemState.muted ? "Volume · muted" : "Volume"
+                            color: "#f4f7fb"
+                            font.pixelSize: 12
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: panel.systemState ? panel.systemState.volume + "%" : "—"
+                            color: "#697586"
+                            font.pixelSize: 10
+                        }
+                    }
+
+                    Slider {
+                        id: volumeSlider
+                        Layout.fillWidth: true
+                        from: 0
+                        to: 100
+                        value: panel.systemState ? panel.systemState.volume : 0
+                        onMoved: if (panel.systemState) panel.systemState.setVolume(Math.round(value))
+                    }
+
+                    Text {
+                        text: "click label to mute"
+                        color: "#596474"
+                        font.pixelSize: 9
                         MouseArea {
-                            id: tileMouse
                             anchors.fill: parent
-                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (panel.systemState) panel.systemState.toggleMute()
                         }
                     }
                 }
@@ -130,89 +252,35 @@ FloatingWindow {
                 color: "#171c23"
                 border.width: 1
                 border.color: "#242c36"
+                opacity: panel.systemState && panel.systemState.brightness >= 0 ? 1.0 : 0.45
 
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 8
+                    spacing: 6
 
                     RowLayout {
                         Layout.fillWidth: true
-
-                        Text {
-                            text: "Volume"
-                            color: "#f4f7fb"
-                            font.pixelSize: 12
-                        }
-
+                        Text { text: "Brightness"; color: "#f4f7fb"; font.pixelSize: 12 }
                         Item { Layout.fillWidth: true }
-
                         Text {
-                            text: "PipeWire"
+                            text: panel.systemState && panel.systemState.brightness >= 0
+                                  ? panel.systemState.brightness + "%"
+                                  : "unavailable"
                             color: "#697586"
                             font.pixelSize: 10
                         }
                     }
 
-                    Rectangle {
+                    Slider {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 6
-                        radius: 3
-                        color: "#29313c"
-
-                        Rectangle {
-                            width: parent.width * 0.62
-                            height: parent.height
-                            radius: 3
-                            color: "#aab4c2"
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 82
-                radius: 12
-                color: "#171c23"
-                border.width: 1
-                border.color: "#242c36"
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 8
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Text {
-                            text: "Brightness"
-                            color: "#f4f7fb"
-                            font.pixelSize: 12
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Text {
-                            text: "Display"
-                            color: "#697586"
-                            font.pixelSize: 10
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 6
-                        radius: 3
-                        color: "#29313c"
-
-                        Rectangle {
-                            width: parent.width * 0.74
-                            height: parent.height
-                            radius: 3
-                            color: "#aab4c2"
-                        }
+                        enabled: panel.systemState && panel.systemState.brightness >= 0
+                        from: 1
+                        to: 100
+                        value: panel.systemState && panel.systemState.brightness >= 0
+                               ? panel.systemState.brightness
+                               : 1
+                        onMoved: if (panel.systemState) panel.systemState.setBrightness(Math.round(value))
                     }
                 }
             }
@@ -221,9 +289,9 @@ FloatingWindow {
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: "V1 surface · live backends next"
+                text: "NetworkManager · BlueZ · PipeWire · tuned-ppd · brightnessctl"
                 color: "#596474"
-                font.pixelSize: 10
+                font.pixelSize: 9
             }
         }
     }
