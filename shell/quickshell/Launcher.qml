@@ -7,9 +7,19 @@ FloatingWindow {
     id: launcher
 
     title: "sn0w launcher"
-    implicitWidth: 640
-    implicitHeight: 360
+    implicitWidth: 680
+    implicitHeight: 460
     color: "#11151b"
+
+    function matches(entry): bool {
+        const needle = query.text.trim().toLowerCase();
+        if (needle.length === 0)
+            return true;
+
+        return entry.name.toLowerCase().includes(needle)
+            || entry.genericName.toLowerCase().includes(needle)
+            || entry.comment.toLowerCase().includes(needle);
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -23,11 +33,23 @@ FloatingWindow {
             anchors.margins: 22
             spacing: 14
 
-            Text {
-                text: "sn0w"
-                color: "#f4f7fb"
-                font.pixelSize: 22
-                font.bold: true
+            RowLayout {
+                Layout.fillWidth: true
+
+                Text {
+                    text: "sn0w"
+                    color: "#f4f7fb"
+                    font.pixelSize: 22
+                    font.bold: true
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: "Launcher"
+                    color: "#697586"
+                    font.pixelSize: 12
+                }
             }
 
             TextField {
@@ -36,9 +58,7 @@ FloatingWindow {
                 placeholderText: "Apps, projects, actions…"
                 font.pixelSize: 16
                 focus: launcher.visible
-                onAccepted: {
-                    // Desktop-entry execution lands in Launcher V1.
-                }
+                selectByMouse: true
             }
 
             Rectangle {
@@ -46,19 +66,91 @@ FloatingWindow {
                 Layout.fillHeight: true
                 radius: 12
                 color: "#0b0d10"
+                clip: true
 
-                Text {
-                    anchors.centerIn: parent
-                    text: query.text.length === 0
-                        ? "Launcher V0 · fuzzy app index next"
-                        : "Search: " + query.text
-                    color: "#8b95a5"
-                    font.pixelSize: 14
+                Flickable {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    contentWidth: width
+                    contentHeight: appColumn.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    Column {
+                        id: appColumn
+                        width: parent.width
+                        spacing: 4
+
+                        Repeater {
+                            model: DesktopEntries.applications
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: appColumn.width
+                                height: launcher.matches(modelData) ? 52 : 0
+                                visible: launcher.matches(modelData)
+                                radius: 9
+                                color: mouse.containsMouse ? "#1b222c" : "transparent"
+                                clip: true
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 10
+                                    anchors.rightMargin: 10
+                                    spacing: 12
+
+                                    Image {
+                                        source: modelData.icon.length > 0
+                                            ? Quickshell.iconPath(modelData.icon)
+                                            : ""
+                                        sourceSize.width: 30
+                                        sourceSize.height: 30
+                                        Layout.preferredWidth: 30
+                                        Layout.preferredHeight: 30
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+
+                                        Text {
+                                            text: modelData.name
+                                            color: "#f4f7fb"
+                                            font.pixelSize: 14
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+
+                                        Text {
+                                            text: modelData.genericName.length > 0
+                                                ? modelData.genericName
+                                                : modelData.comment
+                                            color: "#697586"
+                                            font.pixelSize: 11
+                                            elide: Text.ElideRight
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: mouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        modelData.execute();
+                                        launcher.visible = false;
+                                        query.clear();
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
             Text {
-                text: "⌘Space toggle · Esc support next"
+                text: "⌘Space toggle · desktop entries live from Quickshell"
                 color: "#697586"
                 font.pixelSize: 11
             }
