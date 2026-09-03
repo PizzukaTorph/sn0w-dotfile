@@ -9,6 +9,7 @@ Scope {
     property string wifiName: "Disconnected"
     property bool bluetoothPowered: false
     property string vpnName: "Off"
+    property string vpnAvailableName: ""
     property string powerProfile: "unknown"
     property int volume: 0
     property bool muted: false
@@ -21,9 +22,12 @@ Scope {
         if (!wifiProc.running) wifiProc.running = true;
         if (!ssidProc.running) ssidProc.running = true;
         if (!btProc.running) btProc.running = true;
+        if (!vpnProc.running) vpnProc.running = true;
+        if (!vpnAvailableProc.running) vpnAvailableProc.running = true;
         if (!profileProc.running) profileProc.running = true;
         if (!volumeProc.running) volumeProc.running = true;
         if (!brightnessProc.running) brightnessProc.running = true;
+        if (!batteryProc.running) batteryProc.running = true;
         if (!hostProc.running) hostProc.running = true;
         if (!ipProc.running) ipProc.running = true;
     }
@@ -36,6 +40,16 @@ Scope {
     function toggleBluetooth(): void {
         actionProc.command = ["bluetoothctl", "power", bluetoothPowered ? "off" : "on"];
         actionProc.running = true;
+    }
+
+    function toggleVpn(): void {
+        if (vpnName !== "Off") {
+            actionProc.command = ["nmcli", "connection", "down", vpnName];
+            actionProc.running = true;
+        } else if (vpnAvailableName.length > 0) {
+            actionProc.command = ["nmcli", "connection", "up", vpnAvailableName];
+            actionProc.running = true;
+        }
     }
 
     function cyclePowerProfile(): void {
@@ -107,6 +121,50 @@ Scope {
     }
 
     Process {
+        id: vpnProc
+        command: ["nmcli", "-t", "-f", "TYPE,NAME", "connection", "show", "--active"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.vpnName = "Off";
+                const rows = text.trim().split("\n");
+                for (const row of rows) {
+                    const split = row.indexOf(":");
+                    if (split < 0) continue;
+                    const type = row.slice(0, split);
+                    const name = row.slice(split + 1);
+                    if (type === "wireguard" || type === "vpn") {
+                        root.vpnName = name;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    Process {
+        id: vpnAvailableProc
+        command: ["nmcli", "-t", "-f", "TYPE,NAME", "connection", "show"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.vpnAvailableName = "";
+                const rows = text.trim().split("\n");
+                for (const row of rows) {
+                    const split = row.indexOf(":");
+                    if (split < 0) continue;
+                    const type = row.slice(0, split);
+                    const name = row.slice(split + 1);
+                    if (type === "wireguard" || type === "vpn") {
+                        root.vpnAvailableName = name;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    Process {
         id: profileProc
         command: [
             "busctl", "get-property",
@@ -145,6 +203,18 @@ Scope {
             onStreamFinished: {
                 const fields = text.trim().split(",");
                 root.brightness = fields.length >= 4 ? Number(fields[3].replace("%", "")) : -1;
+            }
+        }
+    }
+
+    Process {
+        id: batteryProc
+        command: ["sh", "-lc", "for b in /sys/class/power_supply/BAT*; do if [ -r \"$b/capacity\" ]; then cat \"$b/capacity\"; exit; fi; done"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const value = text.trim();
+                root.battery = value.length > 0 ? value + "%" : "AC";
             }
         }
     }
