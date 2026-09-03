@@ -126,9 +126,37 @@ ShellRoot {
 
     IpcHandler {
         target: "osd"
-        function volume(value: int): void { osd.showValue("volume", value, false); }
-        function mute(value: int): void { osd.showValue("volume", value, true); }
-        function brightness(value: int): void { osd.showValue("brightness", value, false); }
+
+        function volumeUp(): void {
+            const value = Math.min(100, systemState.volume + 5);
+            systemState.setVolume(value);
+            osd.showValue("volume", value, false);
+        }
+
+        function volumeDown(): void {
+            const value = Math.max(0, systemState.volume - 5);
+            systemState.setVolume(value);
+            osd.showValue("volume", value, false);
+        }
+
+        function muteToggle(): void {
+            systemState.toggleMute();
+            osd.showValue("volume", systemState.volume, !systemState.muted);
+        }
+
+        function brightnessUp(): void {
+            if (systemState.brightness < 0) return;
+            const value = Math.min(100, systemState.brightness + 5);
+            systemState.setBrightness(value);
+            osd.showValue("brightness", value, false);
+        }
+
+        function brightnessDown(): void {
+            if (systemState.brightness < 0) return;
+            const value = Math.max(1, systemState.brightness - 5);
+            systemState.setBrightness(value);
+            osd.showValue("brightness", value, false);
+        }
     }
 
     IpcHandler {
