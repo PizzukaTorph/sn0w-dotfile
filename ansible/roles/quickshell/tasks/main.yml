@@ -8,9 +8,11 @@
       - "copr:copr.fedorainfracloud.org:nett00n:hyprland"
   become: true
 
-- name: Install Qt Wayland platform plugin
+- name: Install Qt Wayland and GNOME platform integration
   ansible.builtin.dnf:
-    name: qt6-qtwayland
+    name:
+      - qt6-qtwayland
+      - qgnomeplatform-qt6
     state: present
   become: true
 
