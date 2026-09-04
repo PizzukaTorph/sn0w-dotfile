@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    print("sn0w-project: python3-pyyaml is required", file=sys.stderr)
+    raise SystemExit(2)
+
+STATE_DIR = Path.home() / ".local/state/sn0w/projects"
+
+def run(cmd, cwd=None, check=False, quiet=False):
+    kwargs = {"cwd": cwd, "text": True}
+    if quiet:
+        kwargs.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return subprocess.run(cmd, check=check, **kwargs)
+
+def spawn(cmd, cwd=None):
+    subprocess.Popen(cmd, cwd=cwd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def slug(value):
+    return re.sub(r"[^a-zA-Z0-9._-]+", "-", value).strip("-").lower() or "project"
+
+def load_project(path):
+    root = Path(path).expanduser().resolve()
+    cfg_path = root / ".sn0w/project.yaml"
+    data = {}
+    if cfg_path.exists():
+        data = yaml.safe_load(cfg_path.read_text()) or {}
+        if not isinstance(data, dict):
+            raise ValueError(".sn0w/project.yaml must contain a mapping")
+    name = str(data.get("name") or root.name)
+    data["name"] = name
+    data["path"] = str(root)
+    data["workspace"] = str(data.get("workspace") or f"project-{slug(name)}")
+    return data
+
+def state_path(project):
+    return STATE_DIR / f"{slug(project['path'])}.json"
+
+def write_state(project, running=True):
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "name": project["name"],
+        "path": project["path"],
+        "workspace": project["workspace"],
+        "running": running,
+        "updatedAt": int(time.time()),
+    }
+    state_path(project).write_text(json.dumps(payload, indent=2) + "\n")
+
+def compose_args(project):
+    compose = project.get("compose", True)
+    if compose is False:
+        return None
+    if isinstance(compose, str):
+        return ["docker", "compose", "-f", compose]
+    if isinstance(compose, dict) and compose.get("file"):
+        return ["docker", "compose", "-f", str(compose["file"])]
+    root = Path(project["path"])
+    if any((root / f).exists() for f in ("compose.yml", "compose.yaml", "docker-compose.yml", "docker-compose.yaml")):
+        return ["docker", "compose"]
+    return None
+
+def project_status(project):
+    root = project["path"]
+    branch = ""
+    dirty = False
+    try:
+        branch = subprocess.check_output(["git", "-C", root, "branch", "--show-current"], text=True, stderr=subprocess.DEVNULL).strip()
+        dirty = bool(subprocess.check_output(["git", "-C", root, "status", "--porcelain"], text=True, stderr=subprocess.DEVNULL).strip())
+    except subprocess.CalledProcessError:
+        pass
+    compose = compose_args(project)
+    services = []
+    if compose:
+        try:
+            raw = subprocess.check_output(compose + ["ps", "--format", "json"], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
+            if raw:
+                for line in raw.splitlines():
+                    try:
+                        row = json.loads(line)
+                        services.append({"name": row.get("Service") or row.get("Name", ""), "state": row.get("State", ""), "health": row.get("Health", "")})
+                    except json.JSONDecodeError:
+                        pass
+        except subprocess.CalledProcessError:
+            pass
+    sp = state_path(project)
+    session = json.loads(sp.read_text()) if sp.exists() else None
+    return {**project, "branch": branch, "dirty": dirty, "services": services, "session": session}
+
+def start(project, resume=False):
+    root = project["path"]
+    workspace = project["workspace"]
+    run(["hyprctl", "dispatch", "workspace", f"name:{workspace}"], quiet=True)
+    compose = compose_args(project)
+    if compose:
+        run(compose + ["up", "-d"], cwd=root)
+    editor = project.get("editor", "code")
+    if editor:
+        if isinstance(editor, list):
+            spawn([str(x) for x in editor], cwd=root)
+        else:
+            spawn([str(editor), root], cwd=root)
+    for terminal in project.get("terminals", []):
+        if isinstance(terminal, str):
+            spawn(["foot", "-D", str(Path(root) / terminal)])
+        elif isinstance(terminal, dict):
+            cwd = str(Path(root) / str(terminal.get("cwd", ".")))
+            command = terminal.get("command")
+            if command:
+                spawn(["foot", "-D", cwd, "sh", "-lc", str(command)])
+            else:
+                spawn(["foot", "-D", cwd])
+    for url in project.get("links", project.get("urls", [])):
+        target = url.get("url") if isinstance(url, dict) else url
+        if target:
+            spawn(["xdg-open", str(target)])
+    write_state(project, True)
+    print(json.dumps(project_status(project)))
+
+def stop(project, keep_services=False):
+    compose = compose_args(project)
+    if compose and not keep_services:
+        run(compose + ["stop"], cwd=project["path"])
+    # Close only windows owned by the project's dedicated workspace.
+    run(["hyprctl", "dispatch", "closewindow", f"workspace:{project['workspace']}"], quiet=True)
+    write_state(project, False)
+    print(json.dumps(project_status(project)))
+
+def main():
+    parser = argparse.ArgumentParser(prog="sn0w-project")
+    sub = parser.add_subparsers(dest="command", required=True)
+    for name in ("status", "start", "resume"):
+        p = sub.add_parser(name)
+        p.add_argument("path")
+    p = sub.add_parser("stop")
+    p.add_argument("path")
+    p.add_argument("--keep-services", action="store_true")
+    p = sub.add_parser("init")
+    p.add_argument("path", nargs="?", default=".")
+    args = parser.parse_args()
+    project = load_project(args.path)
+    if args.command == "status":
+        print(json.dumps(project_status(project)))
+    elif args.command in ("start", "resume"):
+        start(project, args.command == "resume")
+    elif args.command == "stop":
+        stop(project, args.keep_services)
+    elif args.command == "init":
+        target = Path(project["path"]) / ".sn0w/project.yaml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            print(target)
+            return
+        target.write_text(
+            f"name: {project['name']}\n"
+            "# workspace: project-my-project\n"
+            "# editor: code\n"
+            "# compose: true\n"
+            "# terminals:\n"
+            "#   - cwd: .\n"
+            "# links:\n"
+            "#   - http://localhost:3000\n"
+        )
+        print(target)
+
+if __name__ == "__main__":
+    main()
