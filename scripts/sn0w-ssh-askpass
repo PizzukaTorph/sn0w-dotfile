@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+alias_name="${SN0W_SSH_ALIAS:-}"
+if [[ -z "$alias_name" ]]; then
+  exit 1
+fi
+
+secret-tool lookup service sn0w-ssh alias "$alias_name"
