@@ -358,73 +358,8 @@ FloatingWindow {
                         }
                     }
 
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 94
-                        radius: 12
-                        color: "#171c23"
-                        border.width: 1
-                        border.color: "#242c36"
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 14
-                            spacing: 12
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 3
-
-                                Text {
-                                    text: "Trackpad"
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                }
-
-                                Text {
-                                    text: "Natural scrolling"
-                                    color: "#cbd3dd"
-                                    font.pixelSize: 11
-                                }
-
-                                Text {
-                                    text: "Content follows your fingers, like macOS."
-                                    color: "#697586"
-                                    font.pixelSize: 9
-                                }
-                            }
-
-                            Rectangle {
-                                Layout.preferredWidth: 48
-                                Layout.preferredHeight: 26
-                                radius: 13
-                                color: settingsState.naturalScroll ? "#dbeafe" : "#29313b"
-                                border.width: 1
-                                border.color: settingsState.naturalScroll ? "#dbeafe" : "#394452"
-
-                                Rectangle {
-                                    width: 20
-                                    height: 20
-                                    radius: 10
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    x: settingsState.naturalScroll ? parent.width - width - 3 : 3
-                                    color: settingsState.naturalScroll ? "#11151b" : "#8f9aaa"
-
-                                    Behavior on x {
-                                        NumberAnimation {
-                                            duration: 120
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: settingsState.setNaturalScroll(!settingsState.naturalScroll)
-                                }
-                            }
-                        }
+                    InputSettingsCard {
+                        settingsState: window.settingsState
                     }
 
                     Rectangle {
