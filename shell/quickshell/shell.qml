@@ -158,6 +158,11 @@ ShellRoot {
             }
         }
 
+        function commit(): void {
+            if (root.switcherVisible)
+                appSwitcher.commitSelection()
+        }
+
         function close(): void {
             root.switcherVisible = false
         }
