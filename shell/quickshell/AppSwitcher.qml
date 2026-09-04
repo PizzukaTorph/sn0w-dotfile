@@ -14,46 +14,46 @@ FloatingWindow {
 
     function ensureSelectedVisible(): void {
         if (hyprState.clients.length === 0 || appFlick.width <= 0)
-            return;
+            return
 
-        const item = appRepeater.itemAt(selectedIndex);
+        const item = appRepeater.itemAt(selectedIndex)
         if (!item)
-            return;
+            return
 
-        const left = item.x;
-        const right = item.x + item.width;
+        const left = item.x
+        const right = item.x + item.width
         if (left < appFlick.contentX)
-            appFlick.contentX = left;
+            appFlick.contentX = left
         else if (right > appFlick.contentX + appFlick.width)
-            appFlick.contentX = Math.max(0, right - appFlick.width);
+            appFlick.contentX = Math.max(0, right - appFlick.width)
     }
 
     function cycle(): void {
         if (hyprState.clients.length === 0)
-            return;
-        selectedIndex = (selectedIndex + 1) % hyprState.clients.length;
-        visible = true;
-        Qt.callLater(ensureSelectedVisible);
-        commitTimer.restart();
+            return
+        selectedIndex = (selectedIndex + 1) % hyprState.clients.length
+        visible = true
+        Qt.callLater(ensureSelectedVisible)
+        commitTimer.restart()
     }
 
     function resetAndShow(): void {
-        selectedIndex = 0;
-        appFlick.contentX = 0;
-        visible = true;
-        Qt.callLater(ensureSelectedVisible);
-        commitTimer.restart();
+        selectedIndex = 0
+        appFlick.contentX = 0
+        visible = true
+        Qt.callLater(ensureSelectedVisible)
+        commitTimer.restart()
     }
 
     function commitSelection(): void {
         if (hyprState.clients.length === 0) {
-            visible = false;
-            return;
+            visible = false
+            return
         }
-        const client = hyprState.clients[Math.min(selectedIndex, hyprState.clients.length - 1)];
+        const client = hyprState.clients[Math.min(selectedIndex, hyprState.clients.length - 1)]
         if (client && client.address)
-            hyprState.focusClient(client.address);
-        visible = false;
+            hyprState.focusClient(client.address)
+        visible = false
     }
 
     Timer {
@@ -76,9 +76,23 @@ FloatingWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: "Apps"; color: "#f4f7fb"; font.pixelSize: 17; font.bold: true }
-                Item { Layout.fillWidth: true }
-                Text { text: hyprState.clients.length + " windows  ·  ⌘Tab cycles"; color: "#697586"; font.pixelSize: 11 }
+
+                Text {
+                    text: "Apps"
+                    color: "#f4f7fb"
+                    font.pixelSize: 17
+                    font.bold: true
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: hyprState.clients.length + " windows  ·  ⌘Tab cycles"
+                    color: "#697586"
+                    font.pixelSize: 11
+                }
             }
 
             Flickable {
@@ -103,12 +117,10 @@ FloatingWindow {
                             required property var modelData
                             required property int index
 
-                            // Up to four windows should always fit inside the modal. Only
-                            // overflow to horizontal scrolling once there are more.
                             width: {
-                                const visibleCards = Math.max(1, Math.min(4, hyprState.clients.length));
-                                const available = appFlick.width - appRow.spacing * (visibleCards - 1);
-                                return Math.max(112, Math.min(150, available / visibleCards));
+                                const visibleCards = Math.max(1, Math.min(4, hyprState.clients.length))
+                                const available = appFlick.width - appRow.spacing * (visibleCards - 1)
+                                return Math.max(112, Math.min(150, available / visibleCards))
                             }
                             height: appRow.height
                             radius: 12
@@ -127,6 +139,7 @@ FloatingWindow {
                                     Layout.preferredHeight: 44
                                     radius: 11
                                     color: "#29313c"
+
                                     Text {
                                         anchors.centerIn: parent
                                         text: (modelData.class || "?").substring(0, 1).toUpperCase()
@@ -154,7 +167,9 @@ FloatingWindow {
                                     elide: Text.ElideRight
                                 }
 
-                                Item { Layout.fillHeight: true }
+                                Item {
+                                    Layout.fillHeight: true
+                                }
 
                                 Text {
                                     Layout.alignment: Qt.AlignHCenter
@@ -169,9 +184,10 @@ FloatingWindow {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
+
                                 onClicked: {
-                                    switcher.selectedIndex = index;
-                                    switcher.commitSelection();
+                                    switcher.selectedIndex = index
+                                    switcher.commitSelection()
                                 }
                             }
                         }
