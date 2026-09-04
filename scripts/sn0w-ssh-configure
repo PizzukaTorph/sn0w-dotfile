@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+import json
+import os
+import shutil
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+SSH_DIR = HOME / ".ssh"
+SN0W_DIR = SSH_DIR / "sn0w"
+CONFIG_D = SSH_DIR / "config.d"
+CONFIG_FILE = SSH_DIR / "config"
+SN0W_CONFIG = CONFIG_D / "sn0w"
+
+
+def ensure_layout():
+    SSH_DIR.mkdir(mode=0o700, exist_ok=True)
+    SN0W_DIR.mkdir(mode=0o700, exist_ok=True)
+    CONFIG_D.mkdir(mode=0o700, exist_ok=True)
+    os.chmod(SSH_DIR, 0o700)
+    os.chmod(SN0W_DIR, 0o700)
+    os.chmod(CONFIG_D, 0o700)
+
+    include = "Include ~/.ssh/config.d/*"
+    if CONFIG_FILE.exists():
+        text = CONFIG_FILE.read_text()
+        if include not in text:
+            with CONFIG_FILE.open("a") as fh:
+                if text and not text.endswith("\n"):
+                    fh.write("\n")
+                fh.write(include + "\n")
+    else:
+        CONFIG_FILE.write_text(include + "\n")
+    os.chmod(CONFIG_FILE, 0o600)
+
+
+def sanitize_alias(value):
+    allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+    result = "".join(c for c in value if c in allowed)
+    if not result:
+        raise ValueError("Invalid SSH endpoint name")
+    return result
+
+
+def load_settings():
+    path = HOME / ".config" / "sn0w" / "settings.json"
+    if not path.exists():
+        return {}, path
+    return json.loads(path.read_text()), path
+
+
+def save_settings(data, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n")
+    os.replace(tmp, path)
+
+
+def store_password(alias, password):
+    if not password:
+        return
+    proc = subprocess.run(
+        ["secret-tool", "store", "--label", f"sn0w SSH: {alias}", "service", "sn0w-ssh", "alias", alias],
+        input=password,
+        text=True,
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or "Could not store SSH password in keyring")
+
+
+def clear_password(alias):
+    subprocess.run(
+        ["secret-tool", "clear", "service", "sn0w-ssh", "alias", alias],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def configure_key(alias, endpoint):
+    mode = endpoint.get("keyMode", "generate")
+    key_path = SN0W_DIR / f"{alias}_ed25519"
+
+    if mode == "import":
+        source = Path(os.path.expanduser(endpoint.get("keySource", "")))
+        if not source.is_file():
+            raise ValueError("Selected private key does not exist")
+        shutil.copy2(source, key_path)
+        os.chmod(key_path, 0o600)
+        public_source = Path(str(source) + ".pub")
+        if public_source.is_file():
+            shutil.copy2(public_source, Path(str(key_path) + ".pub"))
+            os.chmod(Path(str(key_path) + ".pub"), 0o644)
+    elif not key_path.exists():
+        subprocess.run(
+            ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", f"sn0w:{alias}", "-f", str(key_path)],
+            check=True,
+        )
+
+    return str(key_path)
+
+
+def rebuild_ssh_config(hosts):
+    blocks = ["# Managed by sn0w. Manual edits may be overwritten.\n"]
+    for endpoint in hosts:
+        alias = sanitize_alias(endpoint.get("name", ""))
+        host = endpoint.get("host", "").strip()
+        user = endpoint.get("user", "").strip()
+        port = int(endpoint.get("port", 22))
+        auth = endpoint.get("auth", "key")
+        if not host or not user:
+            continue
+
+        lines = [
+            f"Host {alias}",
+            f"    HostName {host}",
+            f"    User {user}",
+            f"    Port {port}",
+        ]
+        if auth == "key" and endpoint.get("keyPath"):
+            lines.append(f"    IdentityFile {endpoint['keyPath']}")
+            lines.append("    IdentitiesOnly yes")
+        blocks.append("\n".join(lines) + "\n")
+
+    SN0W_CONFIG.write_text("\n".join(blocks))
+    os.chmod(SN0W_CONFIG, 0o600)
+
+
+def save_endpoint(payload):
+    ensure_layout()
+    endpoint = payload["endpoint"]
+    alias = sanitize_alias(endpoint.get("name", ""))
+    endpoint["name"] = alias
+    endpoint["port"] = int(endpoint.get("port", 22))
+
+    auth = endpoint.get("auth", "key")
+    if auth == "key":
+        endpoint["keyPath"] = configure_key(alias, endpoint)
+        endpoint.pop("keySource", None)
+        endpoint.pop("keyMode", None)
+        clear_password(alias)
+    elif auth == "password":
+        endpoint.pop("keyPath", None)
+        endpoint.pop("keySource", None)
+        endpoint.pop("keyMode", None)
+        store_password(alias, payload.get("password", ""))
+    else:
+        raise ValueError("Unsupported authentication mode")
+
+    data, settings_path = load_settings()
+    ssh = data.setdefault("ssh", {})
+    hosts = ssh.setdefault("hosts", [])
+
+    replaced = False
+    for index, current in enumerate(hosts):
+        current_name = current.get("name") if isinstance(current, dict) else str(current)
+        if current_name == alias:
+            hosts[index] = endpoint
+            replaced = True
+            break
+    if not replaced:
+        hosts.append(endpoint)
+
+    save_settings(data, settings_path)
+    rebuild_ssh_config([h for h in hosts if isinstance(h, dict)])
+    print(json.dumps(endpoint))
+
+
+def remove_endpoint(alias):
+    alias = sanitize_alias(alias)
+    data, settings_path = load_settings()
+    ssh = data.setdefault("ssh", {})
+    hosts = ssh.setdefault("hosts", [])
+    ssh["hosts"] = [
+        h for h in hosts
+        if (h.get("name") if isinstance(h, dict) else str(h)) != alias
+    ]
+    clear_password(alias)
+    save_settings(data, settings_path)
+    ensure_layout()
+    rebuild_ssh_config([h for h in ssh["hosts"] if isinstance(h, dict)])
+    print(alias)
+
+
+def main():
+    if len(sys.argv) < 3:
+        raise SystemExit("usage: sn0w-ssh-configure save <json> | remove <alias>")
+    action = sys.argv[1]
+    if action == "save":
+        save_endpoint(json.loads(sys.argv[2]))
+    elif action == "remove":
+        remove_endpoint(sys.argv[2])
+    else:
+        raise SystemExit(f"unknown action: {action}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1)
