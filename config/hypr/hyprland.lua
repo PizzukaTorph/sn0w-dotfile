@@ -21,11 +21,24 @@ hl.config({
     },
 })
 
--- Centered sn0w system surfaces stay outside the tiling tree.
+-- Centered sn0w system surfaces must never enter the tiling tree.
+-- Match both initial_title and live title because Quickshell can publish the
+-- final xdg-toplevel title after the surface has already been created.
+local sn0wModalTitle = "^sn0w (Launcher|App Switcher|Overview|Project Center|Settings|Clipboard|Capture)$"
+
 hl.window_rule({
-    name = "sn0w-centered-surfaces",
+    name = "sn0w-centered-surfaces-initial",
     match = {
-        initial_title = "^sn0w (Launcher|App Switcher|Overview|Project Center|Settings)$",
+        initial_title = sn0wModalTitle,
+    },
+    float = true,
+    center = true,
+})
+
+hl.window_rule({
+    name = "sn0w-centered-surfaces-live",
+    match = {
+        title = sn0wModalTitle,
     },
     float = true,
     center = true,
