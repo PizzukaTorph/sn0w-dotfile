@@ -55,7 +55,7 @@ hl.window_rule({
 })
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH; systemctl --user start graphical-session.target; systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal.service'")
+    hl.exec_cmd("sh -lc 'dbus-update-activation-environment --systemd --all; systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH; systemctl --user start sn0w-graphical-session.service; systemctl --user restart xdg-desktop-portal-hyprland.service xdg-desktop-portal-gtk.service xdg-desktop-portal.service'")
     hl.exec_cmd("sh -lc 'pkill -x qs 2>/dev/null || true; exec qs'")
     hl.exec_cmd("sh -lc 'pkill -f \"wl-paste.*cliphist store\" 2>/dev/null || true; wl-paste --type text --watch cliphist store >/dev/null 2>&1 & wl-paste --type image --watch cliphist store >/dev/null 2>&1 &' ")
 end)
