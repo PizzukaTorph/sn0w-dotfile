@@ -5,8 +5,8 @@ runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 lock="$runtime/sn0w-hyprland.lock"
 mkdir -p "$runtime"
 
-# Keep exactly one sn0w compositor per user. The fd remains owned by Hyprland
-# because we exec it below, so the lock disappears naturally when the session ends.
+# Keep exactly one sn0w compositor per user. The fd is inherited by
+# start-hyprland and then Hyprland, so the lock lives for the whole session.
 exec 9>"$lock"
 if ! flock -n 9; then
   echo "sn0w: a Hyprland session is already running for this user." >&2
@@ -27,4 +27,10 @@ if [[ -d "$hypr_root" ]]; then
   done
 fi
 
-exec Hyprland "$@"
+launcher="$(command -v start-hyprland || true)"
+if [[ -z "$launcher" ]]; then
+  echo "sn0w: start-hyprland was not found in PATH." >&2
+  exit 127
+fi
+
+exec "$launcher" "$@"
