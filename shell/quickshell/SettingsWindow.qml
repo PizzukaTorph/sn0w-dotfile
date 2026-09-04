@@ -128,8 +128,7 @@ FloatingWindow {
         anchors.fill: parent
         radius: 20
         color: "#11151b"
-        border.width: 1
-        border.color: "#2b3440"
+        border.width: 0
 
         ColumnLayout {
             anchors.fill: parent
@@ -529,8 +528,7 @@ FloatingWindow {
             z: 100
             radius: 20
             color: "#11151b"
-            border.width: 1
-            border.color: "#394452"
+            border.width: 0
 
             ColumnLayout {
                 anchors.fill: parent
@@ -657,8 +655,7 @@ FloatingWindow {
             z: 110
             radius: 20
             color: "#11151b"
-            border.width: 1
-            border.color: "#394452"
+            border.width: 0
 
             ColumnLayout {
                 anchors.fill: parent
