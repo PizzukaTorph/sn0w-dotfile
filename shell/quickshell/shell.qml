@@ -50,6 +50,7 @@ ShellRoot {
 
         function onSaved(): void {
             projectState.refresh()
+            root.settingsVisible = false
         }
     }
 
