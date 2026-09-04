@@ -13,6 +13,15 @@ hl.env("QT_QPA_PLATFORMTHEME", "gnome")
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 
 hl.config({
+    general = {
+        -- sn0w uses shape, spacing and shadow rather than focus rings.
+        -- Keep this global so GTK, Qt, terminals and sn0w surfaces are coherent.
+        border_size = 0,
+    },
+    decoration = {
+        rounding = 12,
+        rounding_power = 2.0,
+    },
     input = {
         kb_layout = "us",
         follow_mouse = 1,
