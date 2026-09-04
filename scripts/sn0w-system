@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import subprocess
+import sys
+
+def output(cmd, default=""):
+    try:
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return default
+
+def run(cmd):
+    return subprocess.run(cmd).returncode
+
+def status():
+    monitors = []
+    try:
+        monitors = json.loads(output(["hyprctl", "monitors", "-j"], "[]"))
+    except json.JSONDecodeError:
+        pass
+    volume_raw = output(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]) 
+    volume = 0
+    try:
+        volume = round(float(volume_raw.split()[1]) * 100)
+    except Exception:
+        pass
+    profile_raw = output([
+        "busctl", "get-property", "org.freedesktop.UPower.PowerProfiles",
+        "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles", "ActiveProfile"
+    ])
+    profile = profile_raw.split('"')[1] if '"' in profile_raw else "unknown"
+    print(json.dumps({
+        "wifi": output(["nmcli", "radio", "wifi"]) == "enabled",
+        "wifiName": next((r[4:] for r in output(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]).splitlines() if r.startswith("yes:")), "Disconnected"),
+        "bluetooth": "Powered: yes" in output(["bluetoothctl", "show"]),
+        "volume": volume,
+        "muted": "MUTED" in volume_raw,
+        "powerProfile": profile,
+        "monitors": [{
+            "name": m.get("name", ""),
+            "width": m.get("width", 0),
+            "height": m.get("height", 0),
+            "refreshRate": m.get("refreshRate", 0),
+            "scale": m.get("scale", 1),
+            "transform": m.get("transform", 0),
+            "focused": m.get("focused", False)
+        } for m in monitors]
+    }))
+
+def main():
+    p = argparse.ArgumentParser(prog="sn0w-system")
+    sub = p.add_subparsers(dest="command", required=True)
+    sub.add_parser("status")
+    for name in ("wifi", "bluetooth", "power-profile", "volume", "brightness", "display-scale"):
+        sp = sub.add_parser(name)
+        sp.add_argument("value")
+    sub.add_parser("mute-toggle")
+    args = p.parse_args()
+    if args.command == "status":
+        status()
+        return
+    if args.command == "wifi":
+        sys.exit(run(["nmcli", "radio", "wifi", args.value]))
+    if args.command == "bluetooth":
+        sys.exit(run(["bluetoothctl", "power", args.value]))
+    if args.command == "power-profile":
+        sys.exit(run(["busctl", "set-property", "org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles", "ActiveProfile", "s", args.value]))
+    if args.command == "volume":
+        sys.exit(run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{max(0,min(100,int(args.value)))}%"] ))
+    if args.command == "mute-toggle":
+        sys.exit(run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]))
+    if args.command == "brightness":
+        sys.exit(run(["brightnessctl", "set", f"{max(1,min(100,int(args.value)))}%"] ))
+    if args.command == "display-scale":
+        scale = float(args.value)
+        if scale < 0.5 or scale > 4.0:
+            raise SystemExit("scale must be between 0.5 and 4.0")
+        raw = output(["hyprctl", "monitors", "-j"], "[]")
+        monitors = json.loads(raw)
+        focused = next((m for m in monitors if m.get("focused")), monitors[0] if monitors else None)
+        if not focused:
+            raise SystemExit("no active monitor")
+        name = focused["name"].replace('"', '')
+        lua = f'hl.monitor({{ output = "{name}", mode = "preferred", position = "auto", scale = {scale} }})'
+        sys.exit(run(["hyprctl", "eval", lua]))
+
+if __name__ == "__main__":
+    main()
