@@ -13,6 +13,7 @@ Item {
     property string recordingsDir: "~/Videos/Captures"
 
     property string keyboardLayout: "us"
+    property string keyboardVariant: "mac"
     property bool naturalScroll: true
     property bool tapToClick: true
     property bool twoFingerRightClick: true
@@ -66,12 +67,8 @@ Item {
 
     function save(): void {
         const data = {
-            projects: {
-                roots: projectRoots
-            },
-            ssh: {
-                hosts: sshHosts
-            },
+            projects: { roots: projectRoots },
+            ssh: { hosts: sshHosts },
             apps: {
                 terminal: terminal,
                 fileManager: fileManager,
@@ -83,6 +80,7 @@ Item {
             },
             input: {
                 keyboardLayout: keyboardLayout,
+                keyboardVariant: keyboardVariant,
                 naturalScroll: naturalScroll,
                 tapToClick: tapToClick,
                 twoFingerRightClick: twoFingerRightClick,
@@ -123,6 +121,7 @@ Item {
         const tapDrag = tapAndDrag ? "true" : "false"
         const dwt = disableWhileTyping ? "true" : "false"
         const layout = keyboardLayout.length > 0 ? keyboardLayout : "us"
+        const variant = keyboardVariant || ""
         const gesturesCommand = gesturesEnabled
             ? "rm -f ~/.config/sn0w/gestures-disabled"
             : "mkdir -p ~/.config/sn0w && touch ~/.config/sn0w/gestures-disabled"
@@ -130,7 +129,8 @@ Item {
         inputProc.command = [
             "sh",
             "-lc",
-            "hyprctl keyword input:kb_layout " + layout + " >/dev/null; " +
+            "hyprctl keyword input:kb_layout '" + layout + "' >/dev/null; " +
+            "hyprctl keyword input:kb_variant '" + variant + "' >/dev/null; " +
             "hyprctl keyword input:natural_scroll " + natural + " >/dev/null; " +
             "hyprctl keyword input:touchpad:natural_scroll " + natural + " >/dev/null; " +
             "hyprctl keyword input:touchpad:tap_to_click " + tap + " >/dev/null; " +
@@ -149,63 +149,26 @@ Item {
         inputProc.running = true
     }
 
-    function setKeyboardLayout(value: string): void {
-        const clean = value.trim().toLowerCase()
-        if (clean.length === 0 || clean === keyboardLayout)
+    function setKeyboardMap(layout: string, variant: string): void {
+        const cleanLayout = layout.trim().toLowerCase()
+        const cleanVariant = variant.trim().toLowerCase()
+        if (cleanLayout.length === 0)
             return
-        keyboardLayout = clean
+        keyboardLayout = cleanLayout
+        keyboardVariant = cleanVariant
         scheduleInputCommit()
     }
 
-    function setNaturalScroll(value: bool): void {
-        naturalScroll = value
-        scheduleInputCommit()
-    }
-
-    function setTapToClick(value: bool): void {
-        tapToClick = value
-        scheduleInputCommit()
-    }
-
-    function setTwoFingerRightClick(value: bool): void {
-        twoFingerRightClick = value
-        scheduleInputCommit()
-    }
-
-    function setTapAndDrag(value: bool): void {
-        tapAndDrag = value
-        scheduleInputCommit()
-    }
-
-    function setDragLock(value: int): void {
-        dragLock = Math.max(0, Math.min(2, value))
-        scheduleInputCommit()
-    }
-
-    function setDisableWhileTyping(value: bool): void {
-        disableWhileTyping = value
-        scheduleInputCommit()
-    }
-
-    function setPointerSpeed(value: real): void {
-        pointerSpeed = Math.max(-1.0, Math.min(1.0, value))
-        scheduleInputCommit()
-    }
-
-    function setTouchpadScrollFactor(value: real): void {
-        touchpadScrollFactor = Math.max(0.25, Math.min(2.0, value))
-        scheduleInputCommit()
-    }
-
-    function setMouseScrollFactor(value: real): void {
-        mouseScrollFactor = Math.max(0.25, Math.min(2.0, value))
-        scheduleInputCommit()
-    }
-
-    function setGesturesEnabled(value: bool): void {
-        gesturesEnabled = value
-        scheduleInputCommit()
-    }
+    function setNaturalScroll(value: bool): void { naturalScroll = value; scheduleInputCommit() }
+    function setTapToClick(value: bool): void { tapToClick = value; scheduleInputCommit() }
+    function setTwoFingerRightClick(value: bool): void { twoFingerRightClick = value; scheduleInputCommit() }
+    function setTapAndDrag(value: bool): void { tapAndDrag = value; scheduleInputCommit() }
+    function setDragLock(value: int): void { dragLock = Math.max(0, Math.min(2, value)); scheduleInputCommit() }
+    function setDisableWhileTyping(value: bool): void { disableWhileTyping = value; scheduleInputCommit() }
+    function setPointerSpeed(value: real): void { pointerSpeed = Math.max(-1.0, Math.min(1.0, value)); scheduleInputCommit() }
+    function setTouchpadScrollFactor(value: real): void { touchpadScrollFactor = Math.max(0.25, Math.min(2.0, value)); scheduleInputCommit() }
+    function setMouseScrollFactor(value: real): void { mouseScrollFactor = Math.max(0.25, Math.min(2.0, value)); scheduleInputCommit() }
+    function setGesturesEnabled(value: bool): void { gesturesEnabled = value; scheduleInputCommit() }
 
     function addProjectRoot(value: string): void {
         const clean = value.trim()
@@ -229,12 +192,7 @@ Item {
     function saveSshEndpoint(endpoint, password: string): void {
         if (!endpoint || !endpoint.name || !endpoint.host || !endpoint.user)
             return
-
-        const payload = JSON.stringify({
-            endpoint: endpoint,
-            password: password || ""
-        })
-
+        const payload = JSON.stringify({ endpoint: endpoint, password: password || "" })
         sshBusy = true
         sshStatus = "Saving SSH…"
         sshProc.command = ["sn0w-ssh-configure", "save", payload]
@@ -250,7 +208,6 @@ Item {
         const alias = endpoint && endpoint.name ? endpoint.name : ""
         if (alias.length === 0)
             return
-
         sshBusy = true
         sshStatus = "Removing SSH…"
         sshProc.command = ["sn0w-ssh-configure", "remove", alias]
@@ -259,26 +216,15 @@ Item {
         sshProc.running = true
     }
 
-    Timer {
-        id: inputApplyTimer
-        interval: 80
-        repeat: false
-        onTriggered: root.applyInputSettings()
-    }
-
-    Timer {
-        id: inputSaveTimer
-        interval: 300
-        repeat: false
-        onTriggered: root.save()
-    }
+    Timer { id: inputApplyTimer; interval: 80; repeat: false; onTriggered: root.applyInputSettings() }
+    Timer { id: inputSaveTimer; interval: 300; repeat: false; onTriggered: root.save() }
 
     Process {
         id: loadProc
         command: [
             "python3",
             "-c",
-            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'keyboardLayout':'us','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
+            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'keyboardLayout':'us','keyboardVariant':'mac','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
         ]
         running: true
 
@@ -293,9 +239,9 @@ Item {
                     root.editor = data.apps && data.apps.editor ? data.apps.editor : root.editor
                     root.screenshotsDir = data.capture && data.capture.screenshotsDir ? data.capture.screenshotsDir : root.screenshotsDir
                     root.recordingsDir = data.capture && data.capture.recordingsDir ? data.capture.recordingsDir : root.recordingsDir
-
                     const input = data.input || {}
                     root.keyboardLayout = input.keyboardLayout || "us"
+                    root.keyboardVariant = input.keyboardVariant !== undefined ? input.keyboardVariant : ""
                     root.naturalScroll = input.naturalScroll !== undefined ? input.naturalScroll : true
                     root.tapToClick = input.tapToClick !== undefined ? input.tapToClick : true
                     root.twoFingerRightClick = input.twoFingerRightClick !== undefined ? input.twoFingerRightClick : true
@@ -306,7 +252,6 @@ Item {
                     root.touchpadScrollFactor = input.touchpadScrollFactor !== undefined ? input.touchpadScrollFactor : 1.0
                     root.mouseScrollFactor = input.mouseScrollFactor !== undefined ? input.mouseScrollFactor : 1.0
                     root.gesturesEnabled = input.gesturesEnabled !== undefined ? input.gesturesEnabled : true
-
                     root.loaded = true
                     root.status = "Loaded"
                     root.applyInputSettings()
@@ -320,7 +265,6 @@ Item {
 
     Process {
         id: saveProc
-
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text.trim().length > 0) {
@@ -330,7 +274,6 @@ Item {
                 }
             }
         }
-
         stderr: StdioCollector {
             onStreamFinished: {
                 if (text.trim().length > 0) {
@@ -342,13 +285,10 @@ Item {
         }
     }
 
-    Process {
-        id: inputProc
-    }
+    Process { id: inputProc }
 
     Process {
         id: sshProc
-
         stdout: StdioCollector {
             onStreamFinished: {
                 if (text.trim().length > 0) {
@@ -359,7 +299,6 @@ Item {
                 }
             }
         }
-
         stderr: StdioCollector {
             onStreamFinished: {
                 if (text.trim().length > 0) {
