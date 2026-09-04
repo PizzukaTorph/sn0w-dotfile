@@ -48,6 +48,12 @@ FloatingWindow {
                     Layout.fillWidth: true
                 }
 
+                Text {
+                    text: settingsState.status
+                    color: settingsState.status === "Save failed" ? "#d98c8c" : "#7f8b99"
+                    font.pixelSize: 10
+                }
+
                 Rectangle {
                     Layout.preferredWidth: 74
                     Layout.preferredHeight: 30
@@ -56,7 +62,7 @@ FloatingWindow {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "Save"
+                        text: settingsState.saving ? "Saving…" : "Save"
                         color: "#f4f7fb"
                         font.pixelSize: 11
                         font.bold: true
@@ -67,6 +73,7 @@ FloatingWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+
                         onClicked: {
                             settingsState.terminal = terminalField.text.trim()
                             settingsState.fileManager = filesField.text.trim()
@@ -172,6 +179,11 @@ FloatingWindow {
                                         border.width: 1
                                         border.color: "#28313c"
                                     }
+
+                                    onAccepted: {
+                                        settingsState.addProjectRoot(text)
+                                        clear()
+                                    }
                                 }
 
                                 Button {
@@ -264,6 +276,11 @@ FloatingWindow {
                                         border.width: 1
                                         border.color: "#28313c"
                                     }
+
+                                    onAccepted: {
+                                        settingsState.addSshHost(text)
+                                        clear()
+                                    }
                                 }
 
                                 Button {
@@ -309,36 +326,53 @@ FloatingWindow {
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
+
                                 TextField {
                                     id: terminalField
                                     Layout.fillWidth: true
                                     text: settingsState.terminal
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+                                    onEditingFinished: {
+                                        settingsState.terminal = text.trim()
+                                        settingsState.save()
+                                    }
                                 }
+
                                 Text {
                                     text: "File manager"
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
+
                                 TextField {
                                     id: filesField
                                     Layout.fillWidth: true
                                     text: settingsState.fileManager
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+                                    onEditingFinished: {
+                                        settingsState.fileManager = text.trim()
+                                        settingsState.save()
+                                    }
                                 }
+
                                 Text {
                                     text: "Editor"
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
+
                                 TextField {
                                     id: editorField
                                     Layout.fillWidth: true
                                     text: settingsState.editor
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+                                    onEditingFinished: {
+                                        settingsState.editor = text.trim()
+                                        settingsState.save()
+                                    }
                                 }
                             }
                         }
@@ -376,24 +410,35 @@ FloatingWindow {
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
+
                                 TextField {
                                     id: screenshotsField
                                     Layout.fillWidth: true
                                     text: settingsState.screenshotsDir
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+                                    onEditingFinished: {
+                                        settingsState.screenshotsDir = text.trim()
+                                        settingsState.save()
+                                    }
                                 }
+
                                 Text {
                                     text: "Recordings"
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
+
                                 TextField {
                                     id: recordingsField
                                     Layout.fillWidth: true
                                     text: settingsState.recordingsDir
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+                                    onEditingFinished: {
+                                        settingsState.recordingsDir = text.trim()
+                                        settingsState.save()
+                                    }
                                 }
                             }
                         }
