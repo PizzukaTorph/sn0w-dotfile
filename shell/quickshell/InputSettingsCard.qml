@@ -4,7 +4,6 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
-
     required property var settingsState
 
     property var keyboardMaps: [
@@ -76,7 +75,6 @@ Rectangle {
                 model: root.keyboardMaps
                 textRole: "label"
                 currentIndex: root.keyboardMapIndex()
-
                 onActivated: {
                     const entry = root.keyboardMaps[currentIndex]
                     if (entry)
@@ -89,7 +87,6 @@ Rectangle {
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
-
             Switch {
                 checked: root.settingsState.naturalScroll
                 onToggled: root.settingsState.setNaturalScroll(checked)
@@ -100,7 +97,6 @@ Rectangle {
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
-
             Switch {
                 checked: root.settingsState.tapToClick
                 onToggled: root.settingsState.setTapToClick(checked)
@@ -111,7 +107,6 @@ Rectangle {
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
-
             Switch {
                 checked: root.settingsState.twoFingerRightClick
                 onToggled: root.settingsState.setTwoFingerRightClick(checked)
@@ -122,7 +117,6 @@ Rectangle {
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
-
             Switch {
                 checked: root.settingsState.tapAndDrag
                 onToggled: root.settingsState.setTapAndDrag(checked)
@@ -133,7 +127,6 @@ Rectangle {
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
-
             ComboBox {
                 Layout.preferredWidth: 160
                 model: ["Off", "Timed", "Sticky"]
@@ -146,7 +139,6 @@ Rectangle {
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
-
             Switch {
                 checked: root.settingsState.disableWhileTyping
                 onToggled: root.settingsState.setDisableWhileTyping(checked)
@@ -165,11 +157,20 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: "Pointer speed"; color: "#cbd3dd"; font.pixelSize: 10 }
-                Item { Layout.fillWidth: true }
-                Text { text: root.settingsState.pointerSpeed.toFixed(2); color: "#8f9aaa"; font.pixelSize: 9 }
+                Text {
+                    text: "Pointer speed"
+                    color: "#cbd3dd"
+                    font.pixelSize: 10
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                Text {
+                    text: root.settingsState.pointerSpeed.toFixed(2)
+                    color: "#8f9aaa"
+                    font.pixelSize: 9
+                }
             }
-
             Slider {
                 Layout.fillWidth: true
                 from: -1.0
@@ -181,11 +182,20 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: "Touchpad scroll speed"; color: "#cbd3dd"; font.pixelSize: 10 }
-                Item { Layout.fillWidth: true }
-                Text { text: root.settingsState.touchpadScrollFactor.toFixed(2) + "×"; color: "#8f9aaa"; font.pixelSize: 9 }
+                Text {
+                    text: "Touchpad scroll speed"
+                    color: "#cbd3dd"
+                    font.pixelSize: 10
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                Text {
+                    text: root.settingsState.touchpadScrollFactor.toFixed(2) + "×"
+                    color: "#8f9aaa"
+                    font.pixelSize: 9
+                }
             }
-
             Slider {
                 Layout.fillWidth: true
                 from: 0.25
@@ -197,11 +207,20 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: "Mouse wheel speed"; color: "#cbd3dd"; font.pixelSize: 10 }
-                Item { Layout.fillWidth: true }
-                Text { text: root.settingsState.mouseScrollFactor.toFixed(2) + "×"; color: "#8f9aaa"; font.pixelSize: 9 }
+                Text {
+                    text: "Mouse wheel speed"
+                    color: "#cbd3dd"
+                    font.pixelSize: 10
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                Text {
+                    text: root.settingsState.mouseScrollFactor.toFixed(2) + "×"
+                    color: "#8f9aaa"
+                    font.pixelSize: 9
+                }
             }
-
             Slider {
                 Layout.fillWidth: true
                 from: 0.25
@@ -221,14 +240,20 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1
-                Text { text: "Three-finger gestures"; color: "#cbd3dd"; font.pixelSize: 10 }
-                Text { text: "← / → workspace   •   ↑ Overview   •   ↓ close window"; color: "#697586"; font.pixelSize: 9 }
+                Text {
+                    text: "Three-finger gestures"
+                    color: "#cbd3dd"
+                    font.pixelSize: 10
+                }
+                Text {
+                    text: "← / → workspace   •   ↑ Overview   •   ↓ close window"
+                    color: "#697586"
+                    font.pixelSize: 9
+                }
             }
-
             Switch {
                 checked: root.settingsState.gesturesEnabled
                 onToggled: root.settingsState.setGesturesEnabled(checked)
