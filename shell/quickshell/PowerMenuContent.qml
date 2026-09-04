@@ -9,15 +9,16 @@ Rectangle {
     implicitHeight: 230
     radius: 18
     color: "#11151b"
-    border.width: 1
-    border.color: "#2b3440"
+    border.width: 0
 
     function run(command: list<string>): void {
-        actionProc.command = command;
-        actionProc.running = true;
+        actionProc.command = command
+        actionProc.running = true
     }
 
-    Process { id: actionProc }
+    Process {
+        id: actionProc
+    }
 
     ColumnLayout {
         anchors.fill: parent
