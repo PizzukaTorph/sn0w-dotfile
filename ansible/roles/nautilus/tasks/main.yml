@@ -9,5 +9,52 @@
       - udisks2
       - gnome-keyring
       - sushi
+      - dconf
     state: present
   become: true
+
+- name: Ensure GTK configuration directories exist
+  ansible.builtin.file:
+    path: "{{ ansible_facts['user_dir'] }}/.config/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - gtk-3.0
+    - gtk-4.0
+
+- name: Prefer dark theme for GTK 3 applications and portal dialogs
+  ansible.builtin.copy:
+    dest: "{{ ansible_facts['user_dir'] }}/.config/gtk-3.0/settings.ini"
+    mode: '0644'
+    content: |
+      [Settings]
+      gtk-application-prefer-dark-theme=1
+      gtk-theme-name=Adwaita-dark
+
+- name: Prefer dark theme for GTK 4 applications and portal dialogs
+  ansible.builtin.copy:
+    dest: "{{ ansible_facts['user_dir'] }}/.config/gtk-4.0/settings.ini"
+    mode: '0644'
+    content: |
+      [Settings]
+      gtk-application-prefer-dark-theme=1
+
+- name: Set desktop color scheme to dark
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.interface
+      - color-scheme
+      - prefer-dark
+  changed_when: false
+
+- name: Set GTK theme fallback to Adwaita dark
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.interface
+      - gtk-theme
+      - Adwaita-dark
+  changed_when: false
