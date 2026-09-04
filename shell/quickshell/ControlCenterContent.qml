@@ -10,8 +10,7 @@ Rectangle {
     implicitHeight: 500
     radius: 18
     color: "#11151b"
-    border.width: 1
-    border.color: "#2b3440"
+    border.width: 0
 
     ColumnLayout {
         anchors.fill: parent
@@ -63,10 +62,10 @@ Rectangle {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (modelData.action === "wifi") panel.systemState.toggleWifi();
-                            else if (modelData.action === "bt") panel.systemState.toggleBluetooth();
-                            else if (modelData.action === "vpn") panel.systemState.toggleVpn();
-                            else if (modelData.action === "power") panel.systemState.cyclePowerProfile();
+                            if (modelData.action === "wifi") panel.systemState.toggleWifi()
+                            else if (modelData.action === "bt") panel.systemState.toggleBluetooth()
+                            else if (modelData.action === "vpn") panel.systemState.toggleVpn()
+                            else if (modelData.action === "power") panel.systemState.cyclePowerProfile()
                         }
                     }
                 }
