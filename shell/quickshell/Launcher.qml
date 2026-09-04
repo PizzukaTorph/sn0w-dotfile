@@ -174,9 +174,7 @@ FloatingWindow {
                     selectByMouse: true
                     background: Item {}
 
-                    onTextChanged: {
-                        launcher.selectedIndex = 0
-                    }
+                    onTextChanged: launcher.selectedIndex = 0
 
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Down) {
@@ -403,9 +401,12 @@ FloatingWindow {
 
                             delegate: Rectangle {
                                 id: sshItem
-                                required property string modelData
+                                required property var modelData
                                 required property int index
-                                property bool match: launcher.mode() === "ssh" && launcher.fuzzy(modelData)
+                                property string endpointName: modelData && modelData.name ? modelData.name : ""
+                                property string endpointHost: modelData && modelData.host ? modelData.host : ""
+                                property string endpointUser: modelData && modelData.user ? modelData.user : ""
+                                property bool match: launcher.mode() === "ssh" && launcher.fuzzy(endpointName + " " + endpointHost + " " + endpointUser)
                                 visible: match
                                 height: match ? 46 : 0
                                 width: resultsColumn.width
@@ -413,10 +414,12 @@ FloatingWindow {
                                 color: index === launcher.selectedIndex ? "#27313d" : (sshMouse.containsMouse ? "#1b222c" : "transparent")
 
                                 function activate(): void {
+                                    if (endpointName.length === 0)
+                                        return
                                     actionProc.command = [
                                         "sh",
                                         "-lc",
-                                        "exec " + launcher.settingsState.terminal + " -e ssh " + JSON.stringify(modelData)
+                                        "exec " + launcher.settingsState.terminal + " -e sn0w-ssh " + JSON.stringify(endpointName)
                                     ]
                                     actionProc.running = true
                                     launcher.visible = false
@@ -431,18 +434,25 @@ FloatingWindow {
                                         color: "#9aa5b4"
                                     }
 
-                                    Text {
-                                        text: modelData
-                                        color: "#f4f7fb"
-                                        font.pixelSize: 13
-                                    }
-
-                                    Item {
+                                    ColumnLayout {
                                         Layout.fillWidth: true
+                                        spacing: 0
+
+                                        Text {
+                                            text: sshItem.endpointName
+                                            color: "#f4f7fb"
+                                            font.pixelSize: 13
+                                        }
+
+                                        Text {
+                                            text: (sshItem.endpointUser.length > 0 ? sshItem.endpointUser + "@" : "") + sshItem.endpointHost
+                                            color: "#697586"
+                                            font.pixelSize: 9
+                                        }
                                     }
 
                                     Text {
-                                        text: "ssh"
+                                        text: modelData && modelData.auth === "password" ? "password" : "key"
                                         color: "#596474"
                                         font.pixelSize: 9
                                     }
