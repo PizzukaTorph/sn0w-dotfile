@@ -2,15 +2,89 @@ import Quickshell
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
 FloatingWindow {
     id: window
 
     required property var settingsState
 
+    property bool appPickerVisible: false
+    property string appTarget: ""
+    property string appSearch: ""
+
     title: "sn0w Settings"
     implicitWidth: 700
     implicitHeight: 560
+
+    function currentApp(value: string) {
+        return DesktopEntries.heuristicLookup(value)
+    }
+
+    function currentAppName(value: string): string {
+        const entry = currentApp(value)
+        return entry ? entry.name : value
+    }
+
+    function currentAppIcon(value: string): string {
+        const entry = currentApp(value)
+        if (!entry || !entry.icon || entry.icon.length === 0)
+            return ""
+        return Quickshell.iconPath(entry.icon)
+    }
+
+    function chooseApplication(entry): void {
+        if (!entry)
+            return
+
+        const command = entry.command && entry.command.length > 0 ? entry.command[0] : entry.id
+
+        if (appTarget === "terminal")
+            settingsState.terminal = command
+        else if (appTarget === "files")
+            settingsState.fileManager = command
+        else if (appTarget === "editor")
+            settingsState.editor = command
+
+        settingsState.save()
+        appPickerVisible = false
+        appSearch = ""
+    }
+
+    function appMatches(entry): bool {
+        const needle = appSearch.trim().toLowerCase()
+        if (needle.length === 0)
+            return true
+        const haystack = ((entry.name || "") + " " + (entry.genericName || "") + " " + (entry.comment || "")).toLowerCase()
+        return haystack.indexOf(needle) >= 0
+    }
+
+    function urlToPath(url): string {
+        let value = url.toString()
+        if (value.indexOf("file://") === 0)
+            value = value.slice(7)
+        return decodeURIComponent(value)
+    }
+
+    FolderDialog {
+        id: screenshotsDialog
+        title: "Choose screenshots folder"
+
+        onAccepted: {
+            settingsState.screenshotsDir = window.urlToPath(selectedFolder)
+            settingsState.save()
+        }
+    }
+
+    FolderDialog {
+        id: recordingsDialog
+        title: "Choose recordings folder"
+
+        onAccepted: {
+            settingsState.recordingsDir = window.urlToPath(selectedFolder)
+            settingsState.save()
+        }
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -73,15 +147,7 @@ FloatingWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-
-                        onClicked: {
-                            settingsState.terminal = terminalField.text.trim()
-                            settingsState.fileManager = filesField.text.trim()
-                            settingsState.editor = editorField.text.trim()
-                            settingsState.screenshotsDir = screenshotsField.text.trim()
-                            settingsState.recordingsDir = recordingsField.text.trim()
-                            settingsState.save()
-                        }
+                        onClicked: settingsState.save()
                     }
                 }
             }
@@ -157,7 +223,11 @@ FloatingWindow {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: settingsState.removeProjectRoot(index)
+
+                                            onClicked: {
+                                                settingsState.removeProjectRoot(index)
+                                                settingsState.save()
+                                            }
                                         }
                                     }
                                 }
@@ -173,24 +243,22 @@ FloatingWindow {
                                     placeholderText: "~/Code or /mnt/projects"
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+
                                     background: Rectangle {
                                         radius: 8
                                         color: "#0d1116"
                                         border.width: 1
                                         border.color: "#28313c"
                                     }
-
-                                    onAccepted: {
-                                        settingsState.addProjectRoot(text)
-                                        clear()
-                                    }
                                 }
 
                                 Button {
                                     text: "+ Add"
+
                                     onClicked: {
                                         settingsState.addProjectRoot(projectRootField.text)
                                         projectRootField.clear()
+                                        settingsState.save()
                                     }
                                 }
                             }
@@ -254,7 +322,11 @@ FloatingWindow {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: settingsState.removeSshHost(index)
+
+                                            onClicked: {
+                                                settingsState.removeSshHost(index)
+                                                settingsState.save()
+                                            }
                                         }
                                     }
                                 }
@@ -270,24 +342,22 @@ FloatingWindow {
                                     placeholderText: "hostname or SSH config alias"
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
+
                                     background: Rectangle {
                                         radius: 8
                                         color: "#0d1116"
                                         border.width: 1
                                         border.color: "#28313c"
                                     }
-
-                                    onAccepted: {
-                                        settingsState.addSshHost(text)
-                                        clear()
-                                    }
                                 }
 
                                 Button {
                                     text: "+ Add"
+
                                     onClicked: {
                                         settingsState.addSshHost(sshHostField.text)
                                         sshHostField.clear()
+                                        settingsState.save()
                                     }
                                 }
                             }
@@ -296,16 +366,19 @@ FloatingWindow {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: appsGrid.implicitHeight + 54
+                        Layout.preferredHeight: appDefaultsColumn.implicitHeight + 28
                         radius: 12
                         color: "#171c23"
                         border.width: 1
                         border.color: "#242c36"
 
                         ColumnLayout {
-                            anchors.fill: parent
+                            id: appDefaultsColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
                             anchors.margins: 14
-                            spacing: 8
+                            spacing: 10
 
                             Text {
                                 text: "Default applications"
@@ -314,64 +387,82 @@ FloatingWindow {
                                 font.bold: true
                             }
 
-                            GridLayout {
-                                id: appsGrid
-                                Layout.fillWidth: true
-                                columns: 2
-                                columnSpacing: 10
-                                rowSpacing: 8
+                            Repeater {
+                                model: [
+                                    { label: "Terminal", key: "terminal", value: settingsState.terminal },
+                                    { label: "File manager", key: "files", value: settingsState.fileManager },
+                                    { label: "Editor", key: "editor", value: settingsState.editor }
+                                ]
 
-                                Text {
-                                    text: "Terminal"
-                                    color: "#8f9aaa"
-                                    font.pixelSize: 10
-                                }
-
-                                TextField {
-                                    id: terminalField
+                                delegate: RowLayout {
+                                    required property var modelData
                                     Layout.fillWidth: true
-                                    text: settingsState.terminal
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 11
-                                    onEditingFinished: {
-                                        settingsState.terminal = text.trim()
-                                        settingsState.save()
+                                    spacing: 10
+
+                                    Text {
+                                        Layout.preferredWidth: 96
+                                        text: modelData.label
+                                        color: "#8f9aaa"
+                                        font.pixelSize: 10
                                     }
-                                }
 
-                                Text {
-                                    text: "File manager"
-                                    color: "#8f9aaa"
-                                    font.pixelSize: 10
-                                }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 38
+                                        radius: 9
+                                        color: "#0d1116"
+                                        border.width: 1
+                                        border.color: "#28313c"
 
-                                TextField {
-                                    id: filesField
-                                    Layout.fillWidth: true
-                                    text: settingsState.fileManager
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 11
-                                    onEditingFinished: {
-                                        settingsState.fileManager = text.trim()
-                                        settingsState.save()
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 9
+
+                                            Image {
+                                                source: window.currentAppIcon(modelData.value)
+                                                sourceSize.width: 22
+                                                sourceSize.height: 22
+                                                Layout.preferredWidth: 24
+                                                Layout.preferredHeight: 24
+                                            }
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: window.currentAppName(modelData.value)
+                                                color: "#f4f7fb"
+                                                font.pixelSize: 11
+                                                elide: Text.ElideRight
+                                            }
+                                        }
                                     }
-                                }
 
-                                Text {
-                                    text: "Editor"
-                                    color: "#8f9aaa"
-                                    font.pixelSize: 10
-                                }
+                                    Rectangle {
+                                        Layout.preferredWidth: 74
+                                        Layout.preferredHeight: 30
+                                        radius: 8
+                                        color: browseAppMouse.containsMouse ? "#2a3440" : "#20262e"
 
-                                TextField {
-                                    id: editorField
-                                    Layout.fillWidth: true
-                                    text: settingsState.editor
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 11
-                                    onEditingFinished: {
-                                        settingsState.editor = text.trim()
-                                        settingsState.save()
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "Browse…"
+                                            color: "#cbd3dd"
+                                            font.pixelSize: 10
+                                        }
+
+                                        MouseArea {
+                                            id: browseAppMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+
+                                            onClicked: {
+                                                window.appTarget = modelData.key
+                                                window.appSearch = ""
+                                                window.appPickerVisible = true
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -380,16 +471,19 @@ FloatingWindow {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: captureGrid.implicitHeight + 54
+                        Layout.preferredHeight: captureColumn.implicitHeight + 28
                         radius: 12
                         color: "#171c23"
                         border.width: 1
                         border.color: "#242c36"
 
                         ColumnLayout {
-                            anchors.fill: parent
+                            id: captureColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
                             anchors.margins: 14
-                            spacing: 8
+                            spacing: 10
 
                             Text {
                                 text: "Capture folders"
@@ -398,46 +492,181 @@ FloatingWindow {
                                 font.bold: true
                             }
 
-                            GridLayout {
-                                id: captureGrid
+                            RowLayout {
                                 Layout.fillWidth: true
-                                columns: 2
-                                columnSpacing: 10
-                                rowSpacing: 8
+                                spacing: 10
 
                                 Text {
+                                    Layout.preferredWidth: 96
                                     text: "Screenshots"
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
 
-                                TextField {
-                                    id: screenshotsField
+                                Text {
                                     Layout.fillWidth: true
                                     text: settingsState.screenshotsDir
-                                    color: "#f4f7fb"
+                                    color: "#cbd3dd"
                                     font.pixelSize: 11
-                                    onEditingFinished: {
-                                        settingsState.screenshotsDir = text.trim()
-                                        settingsState.save()
-                                    }
+                                    elide: Text.ElideMiddle
                                 }
 
+                                Button {
+                                    text: "Browse…"
+                                    onClicked: screenshotsDialog.open()
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 10
+
                                 Text {
+                                    Layout.preferredWidth: 96
                                     text: "Recordings"
                                     color: "#8f9aaa"
                                     font.pixelSize: 10
                                 }
 
-                                TextField {
-                                    id: recordingsField
+                                Text {
                                     Layout.fillWidth: true
                                     text: settingsState.recordingsDir
-                                    color: "#f4f7fb"
+                                    color: "#cbd3dd"
                                     font.pixelSize: 11
-                                    onEditingFinished: {
-                                        settingsState.recordingsDir = text.trim()
-                                        settingsState.save()
+                                    elide: Text.ElideMiddle
+                                }
+
+                                Button {
+                                    text: "Browse…"
+                                    onClicked: recordingsDialog.open()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: window.appPickerVisible
+            z: 100
+            radius: 20
+            color: "#11151b"
+            border.width: 1
+            border.color: "#394452"
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 18
+                spacing: 12
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "Choose application"
+                        color: "#f4f7fb"
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    Button {
+                        text: "Cancel"
+
+                        onClicked: {
+                            window.appPickerVisible = false
+                            window.appSearch = ""
+                        }
+                    }
+                }
+
+                TextField {
+                    Layout.fillWidth: true
+                    placeholderText: "Search installed applications…"
+                    color: "#f4f7fb"
+                    text: window.appSearch
+                    onTextChanged: window.appSearch = text
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    radius: 11
+                    color: "#0b0d10"
+                    clip: true
+
+                    Flickable {
+                        anchors.fill: parent
+                        anchors.margins: 6
+                        contentWidth: width
+                        contentHeight: appPickerColumn.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        Column {
+                            id: appPickerColumn
+                            width: parent.width
+                            spacing: 3
+
+                            Repeater {
+                                model: DesktopEntries.applications
+
+                                delegate: Rectangle {
+                                    id: appChoice
+                                    required property var modelData
+                                    property bool match: window.appMatches(modelData)
+                                    visible: match
+                                    height: match ? 48 : 0
+                                    width: appPickerColumn.width
+                                    radius: 9
+                                    color: appChoiceMouse.containsMouse ? "#1b222c" : "transparent"
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+
+                                        Image {
+                                            source: modelData.icon.length > 0 ? Quickshell.iconPath(modelData.icon) : ""
+                                            sourceSize.width: 26
+                                            sourceSize.height: 26
+                                            Layout.preferredWidth: 28
+                                            Layout.preferredHeight: 28
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 0
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.name
+                                                color: "#f4f7fb"
+                                                font.pixelSize: 12
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.genericName.length > 0 ? modelData.genericName : modelData.comment
+                                                color: "#697586"
+                                                font.pixelSize: 9
+                                                elide: Text.ElideRight
+                                            }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: appChoiceMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: window.chooseApplication(modelData)
                                     }
                                 }
                             }
