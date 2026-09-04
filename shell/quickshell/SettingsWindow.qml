@@ -19,6 +19,7 @@ FloatingWindow {
     title: "sn0w Settings"
     implicitWidth: 700
     implicitHeight: 560
+    color: "transparent"
 
     function currentApp(value: string) {
         return DesktopEntries.heuristicLookup(value)
