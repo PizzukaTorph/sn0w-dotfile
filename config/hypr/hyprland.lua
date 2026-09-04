@@ -25,13 +25,67 @@ hl.config({
     input = {
         kb_layout = "us",
         follow_mouse = 1,
-        -- Match macOS by default for external pointing devices as well.
+
+        -- Mac-like defaults. SettingsState reapplies the persisted user choices
+        -- after Quickshell starts, so these are also the first-boot fallback.
         natural_scroll = true,
+        sensitivity = 0.0,
+        scroll_factor = 1.0,
         touchpad = {
             natural_scroll = true,
             tap_to_click = true,
+            clickfinger_behavior = true,
+            tap_and_drag = true,
+            drag_lock = 1,
+            disable_while_typing = true,
+            scroll_factor = 1.0,
         },
     },
+})
+
+-- Three-finger gestures are always registered, but can be disabled instantly
+-- from sn0w Settings. A tiny marker file keeps the gesture callback cheap and
+-- avoids reloading Hyprland whenever the user toggles the feature.
+local function sn0wGesturesEnabled()
+    local home = os.getenv("HOME") or ""
+    local file = io.open(home .. "/.config/sn0w/gestures-disabled", "r")
+    if file then
+        file:close()
+        return false
+    end
+    return true
+end
+
+local function sn0wGesture(command)
+    return function()
+        if sn0wGesturesEnabled() then
+            hl.exec_cmd(command)
+        end
+    end
+end
+
+hl.gesture({
+    fingers = 3,
+    direction = "left",
+    action = sn0wGesture("hyprctl dispatch workspace e+1"),
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "right",
+    action = sn0wGesture("hyprctl dispatch workspace e-1"),
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "up",
+    action = sn0wGesture("qs ipc call overview toggle"),
+})
+
+hl.gesture({
+    fingers = 3,
+    direction = "down",
+    action = sn0wGesture("hyprctl dispatch killactive"),
 })
 
 -- Centered sn0w system surfaces must never enter the tiling tree.
