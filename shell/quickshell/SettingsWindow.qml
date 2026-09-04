@@ -2,7 +2,6 @@ import Quickshell
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 
 FloatingWindow {
     id: window
@@ -15,6 +14,7 @@ FloatingWindow {
     property bool sshEditorVisible: false
     property int sshEditIndex: -1
     property string sshKeySource: ""
+    property string pathPickerTarget: ""
 
     title: "sn0w Settings"
     implicitWidth: 700
@@ -59,13 +59,6 @@ FloatingWindow {
             return true
         const haystack = ((entry.name || "") + " " + (entry.genericName || "") + " " + (entry.comment || "")).toLowerCase()
         return haystack.indexOf(needle) >= 0
-    }
-
-    function urlToPath(url): string {
-        let value = url.toString()
-        if (value.indexOf("file://") === 0)
-            value = value.slice(7)
-        return decodeURIComponent(value)
     }
 
     function openSshEditor(index: int): void {
@@ -116,34 +109,19 @@ FloatingWindow {
         sshEditorVisible = false
     }
 
-    FolderDialog {
-        id: screenshotsDialog
-        title: "Choose screenshots folder"
-
-        onAccepted: {
-            settingsState.screenshotsDir = window.urlToPath(selectedFolder)
-            settingsState.save()
-        }
+    function browseSshKey(): void {
+        pathPickerTarget = "ssh-key"
+        nativePathPicker.open("~/.ssh", "file", "Import SSH private key")
     }
 
-    FolderDialog {
-        id: recordingsDialog
-        title: "Choose recordings folder"
-
-        onAccepted: {
-            settingsState.recordingsDir = window.urlToPath(selectedFolder)
-            settingsState.save()
-        }
+    function browseScreenshots(): void {
+        pathPickerTarget = "screenshots"
+        nativePathPicker.open(settingsState.screenshotsDir, "folder", "Choose screenshots folder")
     }
 
-    FileDialog {
-        id: sshKeyDialog
-        title: "Choose private SSH key"
-        fileMode: FileDialog.OpenFile
-
-        onAccepted: {
-            window.sshKeySource = window.urlToPath(selectedFile)
-        }
+    function browseRecordings(): void {
+        pathPickerTarget = "recordings"
+        nativePathPicker.open(settingsState.recordingsDir, "folder", "Choose recordings folder")
     }
 
     Rectangle {
@@ -511,7 +489,7 @@ FloatingWindow {
 
                                 Button {
                                     text: "Browse…"
-                                    onClicked: screenshotsDialog.open()
+                                    onClicked: window.browseScreenshots()
                                 }
                             }
 
@@ -536,7 +514,7 @@ FloatingWindow {
 
                                 Button {
                                     text: "Browse…"
-                                    onClicked: recordingsDialog.open()
+                                    onClicked: window.browseRecordings()
                                 }
                             }
                         }
@@ -814,7 +792,7 @@ FloatingWindow {
 
                             Button {
                                 text: "Import key…"
-                                onClicked: sshKeyDialog.open()
+                                onClicked: window.browseSshKey()
                             }
                         }
 
@@ -855,6 +833,28 @@ FloatingWindow {
                         enabled: !settingsState.sshBusy
                         onClicked: window.saveSshEditor()
                     }
+                }
+            }
+        }
+
+        NativePathPicker {
+            id: nativePathPicker
+
+            onAccepted: path => {
+                if (window.pathPickerTarget === "ssh-key") {
+                    window.sshKeySource = path
+                    return
+                }
+
+                if (window.pathPickerTarget === "screenshots") {
+                    settingsState.screenshotsDir = path
+                    settingsState.save()
+                    return
+                }
+
+                if (window.pathPickerTarget === "recordings") {
+                    settingsState.recordingsDir = path
+                    settingsState.save()
                 }
             }
         }
