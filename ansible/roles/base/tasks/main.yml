@@ -79,3 +79,31 @@
     dest: "{{ ansible_facts['user_dir'] }}/.config/sn0w/profile"
     content: "{{ sn0w_profile }}\n"
     mode: '0644'
+
+- name: Seed profile-aware sn0w settings on first provision
+  ansible.builtin.copy:
+    dest: "{{ ansible_facts['user_dir'] }}/.config/sn0w/settings.json"
+    force: false
+    mode: '0644'
+    content: |
+      {
+        "projects": {"roots": ["~/Code", "~/Projects", "~/Dev", "/mnt"]},
+        "ssh": {"hosts": []},
+        "apps": {"terminal": "foot", "fileManager": "nautilus", "editor": "code"},
+        "capture": {"screenshotsDir": "~/Pictures/Screenshots", "recordingsDir": "~/Videos/Captures"},
+        "display": {"scale": {{ sn0w_display_scale }}},
+        "input": {
+          "keyboardLayout": "{{ sn0w_keyboard_layout }}",
+          "keyboardVariant": "{{ sn0w_keyboard_variant }}",
+          "naturalScroll": true,
+          "tapToClick": true,
+          "twoFingerRightClick": true,
+          "tapAndDrag": true,
+          "dragLock": 1,
+          "disableWhileTyping": true,
+          "pointerSpeed": 0.0,
+          "touchpadScrollFactor": 1.0,
+          "mouseScrollFactor": 1.0,
+          "gesturesEnabled": true
+        }
+      }
