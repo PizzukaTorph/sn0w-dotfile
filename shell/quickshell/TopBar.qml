@@ -104,8 +104,8 @@ Scope {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                powerPopup.visible = false;
-                                controlPopup.visible = !controlPopup.visible;
+                                powerPopup.visible = false
+                                controlPopup.visible = !controlPopup.visible
                             }
                         }
                     }
@@ -124,8 +124,8 @@ Scope {
                             anchors.fill: parent
                             hoverEnabled: true
                             onClicked: {
-                                controlPopup.visible = false;
-                                powerPopup.visible = !powerPopup.visible;
+                                controlPopup.visible = false
+                                powerPopup.visible = !powerPopup.visible
                             }
                         }
                     }
@@ -140,6 +140,7 @@ Scope {
                 anchor.margins.top: 8
                 implicitWidth: 410
                 implicitHeight: 500
+                color: "transparent"
                 visible: false
 
                 ControlCenterContent {
@@ -156,6 +157,7 @@ Scope {
                 anchor.margins.top: 8
                 implicitWidth: 320
                 implicitHeight: 230
+                color: "transparent"
                 visible: false
 
                 PowerMenuContent { anchors.fill: parent }
