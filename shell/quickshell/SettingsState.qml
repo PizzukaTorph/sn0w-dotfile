@@ -12,6 +12,7 @@ Item {
     property string screenshotsDir: "~/Pictures/Screenshots"
     property string recordingsDir: "~/Videos/Captures"
 
+    property string keyboardLayout: "us"
     property bool naturalScroll: true
     property bool tapToClick: true
     property bool twoFingerRightClick: true
@@ -81,6 +82,7 @@ Item {
                 recordingsDir: recordingsDir
             },
             input: {
+                keyboardLayout: keyboardLayout,
                 naturalScroll: naturalScroll,
                 tapToClick: tapToClick,
                 twoFingerRightClick: twoFingerRightClick,
@@ -120,6 +122,7 @@ Item {
         const clickfinger = twoFingerRightClick ? "true" : "false"
         const tapDrag = tapAndDrag ? "true" : "false"
         const dwt = disableWhileTyping ? "true" : "false"
+        const layout = keyboardLayout.length > 0 ? keyboardLayout : "us"
         const gesturesCommand = gesturesEnabled
             ? "rm -f ~/.config/sn0w/gestures-disabled"
             : "mkdir -p ~/.config/sn0w && touch ~/.config/sn0w/gestures-disabled"
@@ -127,6 +130,7 @@ Item {
         inputProc.command = [
             "sh",
             "-lc",
+            "hyprctl keyword input:kb_layout " + layout + " >/dev/null; " +
             "hyprctl keyword input:natural_scroll " + natural + " >/dev/null; " +
             "hyprctl keyword input:touchpad:natural_scroll " + natural + " >/dev/null; " +
             "hyprctl keyword input:touchpad:tap_to_click " + tap + " >/dev/null; " +
@@ -143,6 +147,14 @@ Item {
         if (inputProc.running)
             inputProc.running = false
         inputProc.running = true
+    }
+
+    function setKeyboardLayout(value: string): void {
+        const clean = value.trim().toLowerCase()
+        if (clean.length === 0 || clean === keyboardLayout)
+            return
+        keyboardLayout = clean
+        scheduleInputCommit()
     }
 
     function setNaturalScroll(value: bool): void {
@@ -266,7 +278,7 @@ Item {
         command: [
             "python3",
             "-c",
-            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
+            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'keyboardLayout':'us','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
         ]
         running: true
 
@@ -283,6 +295,7 @@ Item {
                     root.recordingsDir = data.capture && data.capture.recordingsDir ? data.capture.recordingsDir : root.recordingsDir
 
                     const input = data.input || {}
+                    root.keyboardLayout = input.keyboardLayout || "us"
                     root.naturalScroll = input.naturalScroll !== undefined ? input.naturalScroll : true
                     root.tapToClick = input.tapToClick !== undefined ? input.tapToClick : true
                     root.twoFingerRightClick = input.twoFingerRightClick !== undefined ? input.twoFingerRightClick : true
