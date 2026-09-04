@@ -6,6 +6,8 @@ Item {
 
     required property var settingsState
     property var projects: []
+    property string activePath: ""
+    property string actionStatus: ""
 
     function refresh(): void {
         if (scanProc.running)
@@ -14,32 +16,49 @@ Item {
         scanProc.command = [
             "python3",
             "-c",
-            "import json,os,sys; roots=json.loads(sys.argv[1]); out=[]; seen=set();\nfor raw in roots:\n root=os.path.abspath(os.path.expanduser(raw));\n if not os.path.isdir(root): continue\n base=root.rstrip(os.sep).count(os.sep)\n for d,dirs,files in os.walk(root):\n  depth=d.rstrip(os.sep).count(os.sep)-base\n  if '.git' in dirs and d not in seen:\n   seen.add(d); out.append(d); dirs.remove('.git')\n   if len(out)>=40: break\n  if depth>=3: dirs[:]=[]\n if len(out)>=40: break\nprint('\\n'.join(sorted(out)))",
+            "import json,os,subprocess,sys; roots=json.loads(sys.argv[1]); out=[]; seen=set();\nfor raw in roots:\n root=os.path.abspath(os.path.expanduser(raw));\n if not os.path.isdir(root): continue\n base=root.rstrip(os.sep).count(os.sep)\n for d,dirs,files in os.walk(root):\n  depth=d.rstrip(os.sep).count(os.sep)-base\n  if '.git' in dirs and d not in seen:\n   seen.add(d);\n   try:\n    p=subprocess.run(['sn0w-project','status',d],capture_output=True,text=True,timeout=2); out.append(json.loads(p.stdout) if p.returncode==0 and p.stdout.strip() else {'name':os.path.basename(d),'path':d})\n   except Exception: out.append({'name':os.path.basename(d),'path':d})\n   dirs.remove('.git')\n   if len(out)>=40: break\n  if depth>=3: dirs[:]=[]\n if len(out)>=40: break\nprint(json.dumps(sorted(out,key=lambda x:x.get('name','').lower())))",
             JSON.stringify(settingsState.projectRoots)
         ]
         scanProc.running = true
     }
 
-    function openTerminal(path: string): void {
-        actionProc.command = [
-            "sh",
-            "-lc",
-            "cd " + JSON.stringify(path) + " && exec " + settingsState.terminal
-        ]
+    function runSession(action: string, path: string): void {
+        if (actionProc.running)
+            return
+        activePath = path
+        actionStatus = action === "stop" ? "Stopping…" : "Starting…"
+        actionProc.command = ["sn0w-project", action, path]
         actionProc.running = true
     }
 
+    function startProject(path: string): void {
+        runSession("start", path)
+    }
+
+    function resumeProject(path: string): void {
+        runSession("resume", path)
+    }
+
+    function stopProject(path: string): void {
+        runSession("stop", path)
+    }
+
+    function openTerminal(path: string): void {
+        launchProc.command = ["sh", "-lc", "cd " + JSON.stringify(path) + " && exec " + settingsState.terminal]
+        launchProc.running = true
+    }
+
     function openFiles(path: string): void {
-        actionProc.command = [settingsState.fileManager, path]
-        actionProc.running = true
+        launchProc.command = [settingsState.fileManager, path]
+        launchProc.running = true
     }
 
     function openCode(path: string): void {
         if (settingsState.editor.trim().length > 0)
-            actionProc.command = [settingsState.editor, path]
+            launchProc.command = [settingsState.editor, path]
         else
-            actionProc.command = ["sh", "-lc", "cd " + JSON.stringify(path) + " && exec " + settingsState.terminal]
-        actionProc.running = true
+            launchProc.command = ["sh", "-lc", "cd " + JSON.stringify(path) + " && exec " + settingsState.terminal]
+        launchProc.running = true
     }
 
     Process {
@@ -47,20 +66,36 @@ Item {
 
         stdout: StdioCollector {
             onStreamFinished: {
-                const rows = text.trim().length > 0 ? text.trim().split("\n") : []
-                root.projects = rows.map(path => {
-                    const pieces = path.split("/")
-                    return {
-                        name: pieces[pieces.length - 1],
-                        path: path
-                    }
-                })
+                try {
+                    root.projects = text.trim().length > 0 ? JSON.parse(text) : []
+                } catch (e) {
+                    root.projects = []
+                }
             }
         }
     }
 
     Process {
         id: actionProc
+
+        onRunningChanged: {
+            if (!running) {
+                root.actionStatus = ""
+                root.activePath = ""
+                refreshTimer.restart()
+            }
+        }
+    }
+
+    Process {
+        id: launchProc
+    }
+
+    Timer {
+        id: refreshTimer
+        interval: 500
+        repeat: false
+        onTriggered: root.refresh()
     }
 
     Timer {
