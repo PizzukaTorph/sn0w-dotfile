@@ -7,27 +7,25 @@ Rectangle {
 
     required property var settingsState
 
-    property var keyboardLayouts: [
-        { label: "English (US)", code: "us" },
-        { label: "English (UK)", code: "gb" },
-        { label: "Italian", code: "it" },
-        { label: "German", code: "de" },
-        { label: "French", code: "fr" },
-        { label: "Spanish", code: "es" },
-        { label: "Portuguese", code: "pt" },
-        { label: "Portuguese (Brazil)", code: "br" },
-        { label: "Swiss", code: "ch" },
-        { label: "Swedish", code: "se" },
-        { label: "Norwegian", code: "no" },
-        { label: "Danish", code: "dk" },
-        { label: "Finnish", code: "fi" },
-        { label: "Polish", code: "pl" },
-        { label: "Czech", code: "cz" }
+    property var keyboardMaps: [
+        { label: "Italian — Mac / Apple", layout: "it", variant: "mac" },
+        { label: "Italian — PC", layout: "it", variant: "" },
+        { label: "English (US) — Mac / Apple", layout: "us", variant: "mac" },
+        { label: "English (US) — PC", layout: "us", variant: "" },
+        { label: "English (UK) — Mac / Apple", layout: "gb", variant: "mac" },
+        { label: "English (UK) — PC", layout: "gb", variant: "" },
+        { label: "German — Mac / Apple", layout: "de", variant: "mac" },
+        { label: "German — PC", layout: "de", variant: "" },
+        { label: "French — Mac / Apple", layout: "fr", variant: "mac" },
+        { label: "French — PC", layout: "fr", variant: "" },
+        { label: "Spanish — Mac / Apple", layout: "es", variant: "mac" },
+        { label: "Spanish — PC", layout: "es", variant: "" }
     ]
 
-    function keyboardLayoutIndex(): int {
-        for (let i = 0; i < keyboardLayouts.length; ++i) {
-            if (keyboardLayouts[i].code === settingsState.keyboardLayout)
+    function keyboardMapIndex(): int {
+        for (let i = 0; i < keyboardMaps.length; ++i) {
+            const map = keyboardMaps[i]
+            if (map.layout === settingsState.keyboardLayout && map.variant === settingsState.keyboardVariant)
                 return i
         }
         return 0
@@ -68,21 +66,21 @@ Rectangle {
             rowSpacing: 8
 
             Text {
-                text: "Keyboard layout"
+                text: "Keyboard map"
                 color: "#cbd3dd"
                 font.pixelSize: 10
             }
 
             ComboBox {
-                Layout.preferredWidth: 220
-                model: root.keyboardLayouts
+                Layout.preferredWidth: 250
+                model: root.keyboardMaps
                 textRole: "label"
-                currentIndex: root.keyboardLayoutIndex()
+                currentIndex: root.keyboardMapIndex()
 
                 onActivated: {
-                    const entry = root.keyboardLayouts[currentIndex]
+                    const entry = root.keyboardMaps[currentIndex]
                     if (entry)
-                        root.settingsState.setKeyboardLayout(entry.code)
+                        root.settingsState.setKeyboardMap(entry.layout, entry.variant)
                 }
             }
 
@@ -167,22 +165,9 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-
-                Text {
-                    text: "Pointer speed"
-                    color: "#cbd3dd"
-                    font.pixelSize: 10
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.settingsState.pointerSpeed.toFixed(2)
-                    color: "#8f9aaa"
-                    font.pixelSize: 9
-                }
+                Text { text: "Pointer speed"; color: "#cbd3dd"; font.pixelSize: 10 }
+                Item { Layout.fillWidth: true }
+                Text { text: root.settingsState.pointerSpeed.toFixed(2); color: "#8f9aaa"; font.pixelSize: 9 }
             }
 
             Slider {
@@ -196,22 +181,9 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-
-                Text {
-                    text: "Touchpad scroll speed"
-                    color: "#cbd3dd"
-                    font.pixelSize: 10
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.settingsState.touchpadScrollFactor.toFixed(2) + "×"
-                    color: "#8f9aaa"
-                    font.pixelSize: 9
-                }
+                Text { text: "Touchpad scroll speed"; color: "#cbd3dd"; font.pixelSize: 10 }
+                Item { Layout.fillWidth: true }
+                Text { text: root.settingsState.touchpadScrollFactor.toFixed(2) + "×"; color: "#8f9aaa"; font.pixelSize: 9 }
             }
 
             Slider {
@@ -225,22 +197,9 @@ Rectangle {
 
             RowLayout {
                 Layout.fillWidth: true
-
-                Text {
-                    text: "Mouse wheel speed"
-                    color: "#cbd3dd"
-                    font.pixelSize: 10
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: root.settingsState.mouseScrollFactor.toFixed(2) + "×"
-                    color: "#8f9aaa"
-                    font.pixelSize: 9
-                }
+                Text { text: "Mouse wheel speed"; color: "#cbd3dd"; font.pixelSize: 10 }
+                Item { Layout.fillWidth: true }
+                Text { text: root.settingsState.mouseScrollFactor.toFixed(2) + "×"; color: "#8f9aaa"; font.pixelSize: 9 }
             }
 
             Slider {
@@ -266,18 +225,8 @@ Rectangle {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 1
-
-                Text {
-                    text: "Three-finger gestures"
-                    color: "#cbd3dd"
-                    font.pixelSize: 10
-                }
-
-                Text {
-                    text: "← / → workspace   •   ↑ Overview   •   ↓ close window"
-                    color: "#697586"
-                    font.pixelSize: 9
-                }
+                Text { text: "Three-finger gestures"; color: "#cbd3dd"; font.pixelSize: 10 }
+                Text { text: "← / → workspace   •   ↑ Overview   •   ↓ close window"; color: "#697586"; font.pixelSize: 9 }
             }
 
             Switch {
