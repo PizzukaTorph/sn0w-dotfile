@@ -25,6 +25,7 @@
       - xdg-utils
       - xdg-desktop-portal
       - xdg-desktop-portal-gtk
+      - libsecret
     state: present
   become: true
 
@@ -45,6 +46,36 @@
     path: "{{ ansible_facts['user_dir'] }}/.config/systemd/user"
     state: directory
     mode: '0755'
+
+- name: Install sn0w SSH configurator
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../scripts/sn0w-ssh-configure"
+    dest: "{{ ansible_facts['user_dir'] }}/.local/bin/sn0w-ssh-configure"
+    state: link
+    force: true
+
+- name: Install sn0w SSH launcher
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../scripts/sn0w-ssh"
+    dest: "{{ ansible_facts['user_dir'] }}/.local/bin/sn0w-ssh"
+    state: link
+    force: true
+
+- name: Install sn0w SSH askpass helper
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../scripts/sn0w-ssh-askpass"
+    dest: "{{ ansible_facts['user_dir'] }}/.local/bin/sn0w-ssh-askpass"
+    state: link
+    force: true
+
+- name: Ensure sn0w SSH helper scripts are executable
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: '0755'
+  loop:
+    - "{{ playbook_dir }}/../scripts/sn0w-ssh-configure"
+    - "{{ playbook_dir }}/../scripts/sn0w-ssh"
+    - "{{ playbook_dir }}/../scripts/sn0w-ssh-askpass"
 
 - name: Install sn0w profile marker
   ansible.builtin.copy:
