@@ -128,13 +128,42 @@ hl.on("hyprland.start", function()
 end)
 
 -- Core sn0w contracts.
-hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
+-- Launcher must remain available even when a client requests shortcut
+-- inhibition, and transparent prevents another later bind from shadowing it.
+hl.bind(
+    "SUPER + SPACE",
+    hl.dsp.exec_cmd("qs ipc call launcher toggle"),
+    {
+        dont_inhibit = true,
+        transparent = true,
+    }
+)
+
 hl.bind("SUPER + TAB", hl.dsp.exec_cmd("qs ipc call switcher cycle"))
--- Keep the switcher visible while Command is held and commit only when the
--- modifier is released, matching macOS muscle memory. The IPC commit is a no-op
--- when the switcher is not visible, so other SUPER shortcuts remain harmless.
-hl.bind("SUPER + SUPER_L", hl.dsp.exec_cmd("qs ipc call switcher commit"), { release = true })
-hl.bind("SUPER + SUPER_R", hl.dsp.exec_cmd("qs ipc call switcher commit"), { release = true })
+
+-- Modifier-only binds must use the actual modifier keysym without also listing
+-- SUPER as a modifier. Requiring SUPER while releasing Super_L/Super_R can race
+-- with modifier-state teardown and interfere with adjacent Command shortcuts.
+hl.bind(
+    "Super_L",
+    hl.dsp.exec_cmd("qs ipc call switcher commit"),
+    {
+        release = true,
+        transparent = true,
+        dont_inhibit = true,
+    }
+)
+
+hl.bind(
+    "Super_R",
+    hl.dsp.exec_cmd("qs ipc call switcher commit"),
+    {
+        release = true,
+        transparent = true,
+        dont_inhibit = true,
+    }
+)
+
 hl.bind("SUPER + UP", hl.dsp.exec_cmd("qs ipc call overview toggle"))
 hl.bind("SUPER + ALT + D", hl.dsp.exec_cmd("qs ipc call projects toggle"))
 hl.bind("SUPER + COMMA", hl.dsp.exec_cmd("qs ipc call settings toggle"))
