@@ -13,7 +13,7 @@ Item {
     property string recordingsDir: "~/Videos/Captures"
 
     property string keyboardLayout: "us"
-    property string keyboardVariant: "mac"
+    property string keyboardVariant: ""
     property bool naturalScroll: true
     property bool tapToClick: true
     property bool twoFingerRightClick: true
@@ -130,22 +130,26 @@ Item {
             ? "rm -f ~/.config/sn0w/gestures-disabled"
             : "mkdir -p ~/.config/sn0w && touch ~/.config/sn0w/gestures-disabled"
 
+        const lua = "hl.config({ input = { " +
+            "kb_layout = \"" + layout + "\", " +
+            "kb_variant = \"" + variant + "\", " +
+            "natural_scroll = " + natural + ", " +
+            "sensitivity = " + pointerSpeed.toFixed(2) + ", " +
+            "scroll_factor = " + mouseScrollFactor.toFixed(2) + ", " +
+            "touchpad = { " +
+                "natural_scroll = " + natural + ", " +
+                "tap_to_click = " + tap + ", " +
+                "clickfinger_behavior = " + clickfinger + ", " +
+                "tap_and_drag = " + tapDrag + ", " +
+                "drag_lock = " + dragLock + ", " +
+                "disable_while_typing = " + dwt + ", " +
+                "scroll_factor = " + touchpadScrollFactor.toFixed(2) +
+            " } } })"
+
         inputProc.command = [
             "sh",
             "-lc",
-            "hyprctl keyword input:kb_layout '" + layout + "' >/dev/null; " +
-            "hyprctl keyword input:kb_variant '" + variant + "' >/dev/null; " +
-            "hyprctl keyword input:natural_scroll " + natural + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:natural_scroll " + natural + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:tap_to_click " + tap + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:clickfinger_behavior " + clickfinger + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:tap_and_drag " + tapDrag + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:drag_lock " + dragLock + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:disable_while_typing " + dwt + " >/dev/null; " +
-            "hyprctl keyword input:sensitivity " + pointerSpeed.toFixed(2) + " >/dev/null; " +
-            "hyprctl keyword input:touchpad:scroll_factor " + touchpadScrollFactor.toFixed(2) + " >/dev/null; " +
-            "hyprctl keyword input:scroll_factor " + mouseScrollFactor.toFixed(2) + " >/dev/null; " +
-            gesturesCommand
+            "hyprctl eval '" + lua + "' >/dev/null && " + gesturesCommand
         ]
 
         if (inputProc.running)
@@ -284,7 +288,7 @@ Item {
         command: [
             "python3",
             "-c",
-            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'keyboardLayout':'us','keyboardVariant':'mac','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
+            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'keyboardLayout':'us','keyboardVariant':'','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
         ]
         running: true
 
