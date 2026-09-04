@@ -89,17 +89,21 @@ Item {
         saveProc.running = true
     }
 
-    function setNaturalScroll(enabled: bool): void {
-        naturalScroll = enabled
+    function applyNaturalScroll(): void {
+        const value = naturalScroll ? "true" : "false"
         naturalScrollProc.command = [
-            "hyprctl",
-            "keyword",
-            "input:touchpad:natural_scroll",
-            enabled ? "true" : "false"
+            "sh",
+            "-lc",
+            "hyprctl keyword input:natural_scroll " + value + " >/dev/null && hyprctl keyword input:touchpad:natural_scroll " + value + " >/dev/null"
         ]
         if (naturalScrollProc.running)
             naturalScrollProc.running = false
         naturalScrollProc.running = true
+    }
+
+    function setNaturalScroll(enabled: bool): void {
+        naturalScroll = enabled
+        applyNaturalScroll()
         save()
     }
 
@@ -178,16 +182,7 @@ Item {
                     root.naturalScroll = data.input && data.input.naturalScroll !== undefined ? data.input.naturalScroll : true
                     root.loaded = true
                     root.status = "Loaded"
-
-                    naturalScrollProc.command = [
-                        "hyprctl",
-                        "keyword",
-                        "input:touchpad:natural_scroll",
-                        root.naturalScroll ? "true" : "false"
-                    ]
-                    if (naturalScrollProc.running)
-                        naturalScrollProc.running = false
-                    naturalScrollProc.running = true
+                    root.applyNaturalScroll()
                 } catch (e) {
                     root.loaded = false
                     root.status = "Load failed"
