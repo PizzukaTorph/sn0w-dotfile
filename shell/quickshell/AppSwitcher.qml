@@ -11,6 +11,7 @@ FloatingWindow {
     title: "sn0w App Switcher"
     implicitWidth: 720
     implicitHeight: 210
+    color: "transparent"
 
     function ensureSelectedVisible(): void {
         if (hyprState.clients.length === 0 || appFlick.width <= 0)
@@ -34,7 +35,6 @@ FloatingWindow {
         selectedIndex = (selectedIndex + 1) % hyprState.clients.length
         visible = true
         Qt.callLater(ensureSelectedVisible)
-        commitTimer.restart()
     }
 
     function resetAndShow(): void {
@@ -42,7 +42,6 @@ FloatingWindow {
         appFlick.contentX = 0
         visible = true
         Qt.callLater(ensureSelectedVisible)
-        commitTimer.restart()
     }
 
     function commitSelection(): void {
@@ -56,18 +55,11 @@ FloatingWindow {
         visible = false
     }
 
-    Timer {
-        id: commitTimer
-        interval: 650
-        onTriggered: switcher.commitSelection()
-    }
-
     Rectangle {
         anchors.fill: parent
         radius: 18
         color: "#11151b"
-        border.width: 1
-        border.color: "#2b3440"
+        border.width: 0
 
         ColumnLayout {
             anchors.fill: parent
@@ -89,7 +81,7 @@ FloatingWindow {
                 }
 
                 Text {
-                    text: hyprState.clients.length + " windows  ·  ⌘Tab cycles"
+                    text: hyprState.clients.length + " windows  ·  ⌘Tab cycles  ·  release ⌘ to switch"
                     color: "#697586"
                     font.pixelSize: 11
                 }
