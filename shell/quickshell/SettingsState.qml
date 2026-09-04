@@ -11,6 +11,7 @@ Item {
     property string editor: "code"
     property string screenshotsDir: "~/Pictures/Screenshots"
     property string recordingsDir: "~/Videos/Captures"
+    property bool naturalScroll: true
     property bool loaded: false
     property bool saving: false
     property bool sshBusy: false
@@ -67,6 +68,9 @@ Item {
             capture: {
                 screenshotsDir: screenshotsDir,
                 recordingsDir: recordingsDir
+            },
+            input: {
+                naturalScroll: naturalScroll
             }
         }
 
@@ -83,6 +87,20 @@ Item {
         if (saveProc.running)
             saveProc.running = false
         saveProc.running = true
+    }
+
+    function setNaturalScroll(enabled: bool): void {
+        naturalScroll = enabled
+        naturalScrollProc.command = [
+            "hyprctl",
+            "keyword",
+            "input:touchpad:natural_scroll",
+            enabled ? "true" : "false"
+        ]
+        if (naturalScrollProc.running)
+            naturalScrollProc.running = false
+        naturalScrollProc.running = true
+        save()
     }
 
     function addProjectRoot(value: string): void {
@@ -142,7 +160,7 @@ Item {
         command: [
             "python3",
             "-c",
-            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
+            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'naturalScroll':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
         ]
         running: true
 
@@ -157,8 +175,19 @@ Item {
                     root.editor = data.apps && data.apps.editor ? data.apps.editor : root.editor
                     root.screenshotsDir = data.capture && data.capture.screenshotsDir ? data.capture.screenshotsDir : root.screenshotsDir
                     root.recordingsDir = data.capture && data.capture.recordingsDir ? data.capture.recordingsDir : root.recordingsDir
+                    root.naturalScroll = data.input && data.input.naturalScroll !== undefined ? data.input.naturalScroll : true
                     root.loaded = true
                     root.status = "Loaded"
+
+                    naturalScrollProc.command = [
+                        "hyprctl",
+                        "keyword",
+                        "input:touchpad:natural_scroll",
+                        root.naturalScroll ? "true" : "false"
+                    ]
+                    if (naturalScrollProc.running)
+                        naturalScrollProc.running = false
+                    naturalScrollProc.running = true
                 } catch (e) {
                     root.loaded = false
                     root.status = "Load failed"
@@ -189,6 +218,10 @@ Item {
                 }
             }
         }
+    }
+
+    Process {
+        id: naturalScrollProc
     }
 
     Process {
