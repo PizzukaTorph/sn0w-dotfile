@@ -12,6 +12,9 @@ FloatingWindow {
     property bool appPickerVisible: false
     property string appTarget: ""
     property string appSearch: ""
+    property bool sshEditorVisible: false
+    property int sshEditIndex: -1
+    property string sshKeySource: ""
 
     title: "sn0w Settings"
     implicitWidth: 700
@@ -38,7 +41,6 @@ FloatingWindow {
             return
 
         const command = entry.command && entry.command.length > 0 ? entry.command[0] : entry.id
-
         if (appTarget === "terminal")
             settingsState.terminal = command
         else if (appTarget === "files")
@@ -66,6 +68,54 @@ FloatingWindow {
         return decodeURIComponent(value)
     }
 
+    function openSshEditor(index: int): void {
+        sshEditIndex = index
+        sshKeySource = ""
+
+        if (index >= 0 && index < settingsState.sshHosts.length) {
+            const endpoint = settingsState.sshHosts[index]
+            sshNameField.text = endpoint.name || ""
+            sshHostField.text = endpoint.host || ""
+            sshPortField.text = String(endpoint.port || 22)
+            sshUserField.text = endpoint.user || ""
+            sshAuth.currentIndex = endpoint.auth === "password" ? 1 : 0
+            sshPasswordField.text = ""
+        } else {
+            sshNameField.text = ""
+            sshHostField.text = ""
+            sshPortField.text = "22"
+            sshUserField.text = ""
+            sshAuth.currentIndex = 0
+            sshPasswordField.text = ""
+        }
+        sshEditorVisible = true
+    }
+
+    function saveSshEditor(): void {
+        const endpoint = {
+            name: sshNameField.text.trim(),
+            host: sshHostField.text.trim(),
+            port: parseInt(sshPortField.text || "22"),
+            user: sshUserField.text.trim(),
+            auth: sshAuth.currentIndex === 1 ? "password" : "key"
+        }
+
+        if (endpoint.auth === "key") {
+            if (sshKeySource.length > 0) {
+                endpoint.keyMode = "import"
+                endpoint.keySource = sshKeySource
+            } else {
+                endpoint.keyMode = "generate"
+            }
+        }
+
+        if (endpoint.name.length === 0 || endpoint.host.length === 0 || endpoint.user.length === 0)
+            return
+
+        settingsState.saveSshEndpoint(endpoint, sshPasswordField.text)
+        sshEditorVisible = false
+    }
+
     FolderDialog {
         id: screenshotsDialog
         title: "Choose screenshots folder"
@@ -83,6 +133,16 @@ FloatingWindow {
         onAccepted: {
             settingsState.recordingsDir = window.urlToPath(selectedFolder)
             settingsState.save()
+        }
+    }
+
+    FileDialog {
+        id: sshKeyDialog
+        title: "Choose private SSH key"
+        fileMode: FileDialog.OpenFile
+
+        onAccepted: {
+            window.sshKeySource = window.urlToPath(selectedFile)
         }
     }
 
@@ -112,7 +172,7 @@ FloatingWindow {
                     }
 
                     Text {
-                        text: "~/.config/sn0w/settings.json"
+                        text: "sn0w owns the plumbing — you choose what you want"
                         color: "#697586"
                         font.pixelSize: 10
                     }
@@ -123,32 +183,15 @@ FloatingWindow {
                 }
 
                 Text {
-                    text: settingsState.status
-                    color: settingsState.status === "Save failed" ? "#d98c8c" : "#7f8b99"
+                    text: settingsState.sshBusy ? settingsState.sshStatus : settingsState.status
+                    color: settingsState.status === "Save failed" || settingsState.sshStatus === "SSH failed" ? "#d98c8c" : "#7f8b99"
                     font.pixelSize: 10
                 }
 
-                Rectangle {
-                    Layout.preferredWidth: 74
-                    Layout.preferredHeight: 30
-                    radius: 8
-                    color: saveMouse.containsMouse ? "#334150" : "#27313d"
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: settingsState.saving ? "Saving…" : "Save"
-                        color: "#f4f7fb"
-                        font.pixelSize: 11
-                        font.bold: true
-                    }
-
-                    MouseArea {
-                        id: saveMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: settingsState.save()
-                    }
+                Button {
+                    text: settingsState.saving ? "Saving…" : "Save"
+                    enabled: !settingsState.saving
+                    onClicked: settingsState.save()
                 }
             }
 
@@ -205,30 +248,9 @@ FloatingWindow {
                                         elide: Text.ElideMiddle
                                     }
 
-                                    Rectangle {
-                                        Layout.preferredWidth: 62
-                                        Layout.preferredHeight: 26
-                                        radius: 7
-                                        color: rootRemoveMouse.containsMouse ? "#342128" : "#20262e"
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Remove"
-                                            color: "#aeb8c5"
-                                            font.pixelSize: 9
-                                        }
-
-                                        MouseArea {
-                                            id: rootRemoveMouse
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-
-                                            onClicked: {
-                                                settingsState.removeProjectRoot(index)
-                                                settingsState.save()
-                                            }
-                                        }
+                                    Button {
+                                        text: "Remove"
+                                        onClicked: settingsState.removeProjectRoot(index)
                                     }
                                 }
                             }
@@ -243,13 +265,6 @@ FloatingWindow {
                                     placeholderText: "~/Code or /mnt/projects"
                                     color: "#f4f7fb"
                                     font.pixelSize: 11
-
-                                    background: Rectangle {
-                                        radius: 8
-                                        color: "#0d1116"
-                                        border.width: 1
-                                        border.color: "#28313c"
-                                    }
                                 }
 
                                 Button {
@@ -258,7 +273,6 @@ FloatingWindow {
                                     onClicked: {
                                         settingsState.addProjectRoot(projectRootField.text)
                                         projectRootField.clear()
-                                        settingsState.save()
                                     }
                                 }
                             }
@@ -281,83 +295,84 @@ FloatingWindow {
                             anchors.margins: 14
                             spacing: 8
 
+                            RowLayout {
+                                Layout.fillWidth: true
+
+                                Text {
+                                    text: "SSH endpoints"
+                                    color: "#f4f7fb"
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true
+                                }
+
+                                Button {
+                                    text: "+ Add endpoint"
+                                    onClicked: window.openSshEditor(-1)
+                                }
+                            }
+
                             Text {
-                                text: "SSH hosts"
-                                color: "#f4f7fb"
-                                font.pixelSize: 13
-                                font.bold: true
+                                text: "Keys, ~/.ssh/config and passwords are managed automatically."
+                                color: "#697586"
+                                font.pixelSize: 9
                             }
 
                             Repeater {
                                 model: settingsState.sshHosts
 
-                                delegate: RowLayout {
-                                    required property string modelData
+                                delegate: Rectangle {
+                                    required property var modelData
                                     required property int index
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    Layout.preferredHeight: 52
+                                    radius: 9
+                                    color: "#0d1116"
+                                    border.width: 1
+                                    border.color: "#28313c"
 
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: modelData
-                                        color: "#cbd3dd"
-                                        font.pixelSize: 11
-                                    }
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 8
+                                        spacing: 9
 
-                                    Rectangle {
-                                        Layout.preferredWidth: 62
-                                        Layout.preferredHeight: 26
-                                        radius: 7
-                                        color: hostRemoveMouse.containsMouse ? "#342128" : "#20262e"
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 1
+
+                                            Text {
+                                                text: modelData.name || "Unnamed"
+                                                color: "#f4f7fb"
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                            }
+
+                                            Text {
+                                                text: (modelData.user ? modelData.user + "@" : "") + (modelData.host || "") + ":" + (modelData.port || 22)
+                                                color: "#697586"
+                                                font.pixelSize: 9
+                                            }
+                                        }
 
                                         Text {
-                                            anchors.centerIn: parent
-                                            text: "Remove"
-                                            color: "#aeb8c5"
+                                            text: modelData.legacy ? "needs setup" : (modelData.auth === "password" ? "password" : "key")
+                                            color: modelData.legacy ? "#d9a56f" : "#7f8b99"
                                             font.pixelSize: 9
                                         }
 
-                                        MouseArea {
-                                            id: hostRemoveMouse
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-
-                                            onClicked: {
-                                                settingsState.removeSshHost(index)
-                                                settingsState.save()
-                                            }
+                                        Button {
+                                            text: "Configure"
+                                            onClicked: window.openSshEditor(index)
                                         }
-                                    }
-                                }
-                            }
 
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                TextField {
-                                    id: sshHostField
-                                    Layout.fillWidth: true
-                                    placeholderText: "hostname or SSH config alias"
-                                    color: "#f4f7fb"
-                                    font.pixelSize: 11
-
-                                    background: Rectangle {
-                                        radius: 8
-                                        color: "#0d1116"
-                                        border.width: 1
-                                        border.color: "#28313c"
-                                    }
-                                }
-
-                                Button {
-                                    text: "+ Add"
-
-                                    onClicked: {
-                                        settingsState.addSshHost(sshHostField.text)
-                                        sshHostField.clear()
-                                        settingsState.save()
+                                        Button {
+                                            text: "Remove"
+                                            onClicked: settingsState.removeSshHost(index)
+                                        }
                                     }
                                 }
                             }
@@ -438,30 +453,13 @@ FloatingWindow {
                                         }
                                     }
 
-                                    Rectangle {
-                                        Layout.preferredWidth: 74
-                                        Layout.preferredHeight: 30
-                                        radius: 8
-                                        color: browseAppMouse.containsMouse ? "#2a3440" : "#20262e"
+                                    Button {
+                                        text: "Browse…"
 
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Browse…"
-                                            color: "#cbd3dd"
-                                            font.pixelSize: 10
-                                        }
-
-                                        MouseArea {
-                                            id: browseAppMouse
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-
-                                            onClicked: {
-                                                window.appTarget = modelData.key
-                                                window.appSearch = ""
-                                                window.appPickerVisible = true
-                                            }
+                                        onClicked: {
+                                            window.appTarget = modelData.key
+                                            window.appSearch = ""
+                                            window.appPickerVisible = true
                                         }
                                     }
                                 }
@@ -648,12 +646,11 @@ FloatingWindow {
                                                 text: modelData.name
                                                 color: "#f4f7fb"
                                                 font.pixelSize: 12
-                                                elide: Text.ElideRight
                                             }
 
                                             Text {
                                                 Layout.fillWidth: true
-                                                text: modelData.genericName.length > 0 ? modelData.genericName : modelData.comment
+                                                text: modelData.genericName || modelData.comment
                                                 color: "#697586"
                                                 font.pixelSize: 9
                                                 elide: Text.ElideRight
@@ -671,6 +668,192 @@ FloatingWindow {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: window.sshEditorVisible
+            z: 110
+            radius: 20
+            color: "#11151b"
+            border.width: 1
+            border.color: "#394452"
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 22
+                spacing: 12
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    ColumnLayout {
+                        spacing: 1
+
+                        Text {
+                            text: window.sshEditIndex >= 0 ? "Configure SSH endpoint" : "Add SSH endpoint"
+                            color: "#f4f7fb"
+                            font.pixelSize: 18
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "sn0w will configure ~/.ssh and secure credentials for you"
+                            color: "#697586"
+                            font.pixelSize: 9
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    Button {
+                        text: "Cancel"
+                        onClicked: window.sshEditorVisible = false
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 12
+                    rowSpacing: 9
+
+                    Text {
+                        text: "Name"
+                        color: "#8f9aaa"
+                    }
+
+                    TextField {
+                        id: sshNameField
+                        Layout.fillWidth: true
+                        placeholderText: "m0ther"
+                    }
+
+                    Text {
+                        text: "Host"
+                        color: "#8f9aaa"
+                    }
+
+                    TextField {
+                        id: sshHostField
+                        Layout.fillWidth: true
+                        placeholderText: "server.example.com or 10.0.0.10"
+                    }
+
+                    Text {
+                        text: "Port"
+                        color: "#8f9aaa"
+                    }
+
+                    TextField {
+                        id: sshPortField
+                        Layout.fillWidth: true
+                        text: "22"
+                        inputMethodHints: Qt.ImhDigitsOnly
+                    }
+
+                    Text {
+                        text: "User"
+                        color: "#8f9aaa"
+                    }
+
+                    TextField {
+                        id: sshUserField
+                        Layout.fillWidth: true
+                        placeholderText: "pizzu"
+                    }
+
+                    Text {
+                        text: "Authentication"
+                        color: "#8f9aaa"
+                    }
+
+                    ComboBox {
+                        id: sshAuth
+                        Layout.fillWidth: true
+                        model: ["SSH key", "Password"]
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: sshAuth.currentIndex === 0 ? 100 : 92
+                    radius: 10
+                    color: "#171c23"
+                    border.width: 1
+                    border.color: "#28313c"
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 8
+
+                        Text {
+                            text: sshAuth.currentIndex === 0 ? "SSH key" : "Password"
+                            color: "#f4f7fb"
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            visible: sshAuth.currentIndex === 0
+                            Layout.fillWidth: true
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: window.sshKeySource.length > 0 ? window.sshKeySource : "Generate and manage an Ed25519 key automatically"
+                                color: "#8f9aaa"
+                                font.pixelSize: 9
+                                elide: Text.ElideMiddle
+                            }
+
+                            Button {
+                                text: "Import key…"
+                                onClicked: sshKeyDialog.open()
+                            }
+                        }
+
+                        TextField {
+                            id: sshPasswordField
+                            visible: sshAuth.currentIndex === 1
+                            Layout.fillWidth: true
+                            echoMode: TextInput.Password
+                            placeholderText: window.sshEditIndex >= 0 ? "Leave blank to keep saved password" : "Password"
+                        }
+
+                        Text {
+                            visible: sshAuth.currentIndex === 1
+                            text: "Stored in the desktop keyring, never in settings.json"
+                            color: "#697586"
+                            font.pixelSize: 9
+                        }
+                    }
+                }
+
+                Item {
+                    Layout.fillHeight: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Generated/imported private keys are kept in ~/.ssh/sn0w with safe permissions."
+                        color: "#596474"
+                        font.pixelSize: 9
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Button {
+                        text: settingsState.sshBusy ? "Saving…" : "Save endpoint"
+                        enabled: !settingsState.sshBusy
+                        onClicked: window.saveSshEditor()
                     }
                 }
             }
