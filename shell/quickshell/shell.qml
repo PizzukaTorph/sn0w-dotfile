@@ -97,7 +97,7 @@ ShellRoot {
         projectState: projectState
     }
 
-    Settings {
+    SettingsWindow {
         visible: root.settingsVisible
         settingsState: settingsState
     }
