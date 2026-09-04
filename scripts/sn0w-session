@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+lock="$runtime/sn0w-hyprland.lock"
+mkdir -p "$runtime"
+
+# Keep exactly one sn0w compositor per user. The fd remains owned by Hyprland
+# because we exec it below, so the lock disappears naturally when the session ends.
+exec 9>"$lock"
+if ! flock -n 9; then
+  echo "sn0w: a Hyprland session is already running for this user." >&2
+  echo "sn0w: switch to that VT/session instead of starting another compositor." >&2
+  exit 1
+fi
+
+# Hyprland can leave instance directories behind after crashes. Remove only
+# directories whose control socket is not reachable; never touch a live instance.
+hypr_root="$runtime/hypr"
+if [[ -d "$hypr_root" ]]; then
+  for dir in "$hypr_root"/*; do
+    [[ -d "$dir" ]] || continue
+    sig="$(basename "$dir")"
+    if ! HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl version >/dev/null 2>&1; then
+      rm -rf -- "$dir"
+    fi
+  done
+fi
+
+exec Hyprland "$@"
