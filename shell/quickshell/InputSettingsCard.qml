@@ -7,6 +7,32 @@ Rectangle {
 
     required property var settingsState
 
+    property var keyboardLayouts: [
+        { label: "English (US)", code: "us" },
+        { label: "English (UK)", code: "gb" },
+        { label: "Italian", code: "it" },
+        { label: "German", code: "de" },
+        { label: "French", code: "fr" },
+        { label: "Spanish", code: "es" },
+        { label: "Portuguese", code: "pt" },
+        { label: "Portuguese (Brazil)", code: "br" },
+        { label: "Swiss", code: "ch" },
+        { label: "Swedish", code: "se" },
+        { label: "Norwegian", code: "no" },
+        { label: "Danish", code: "dk" },
+        { label: "Finnish", code: "fi" },
+        { label: "Polish", code: "pl" },
+        { label: "Czech", code: "cz" }
+    ]
+
+    function keyboardLayoutIndex(): int {
+        for (let i = 0; i < keyboardLayouts.length; ++i) {
+            if (keyboardLayouts[i].code === settingsState.keyboardLayout)
+                return i
+        }
+        return 0
+    }
+
     Layout.fillWidth: true
     Layout.preferredHeight: content.implicitHeight + 28
     radius: 12
@@ -23,7 +49,7 @@ Rectangle {
         spacing: 10
 
         Text {
-            text: "Input / Trackpad"
+            text: "Input / Keyboard & Trackpad"
             color: "#f4f7fb"
             font.pixelSize: 13
             font.bold: true
@@ -40,6 +66,25 @@ Rectangle {
             columns: 2
             columnSpacing: 14
             rowSpacing: 8
+
+            Text {
+                text: "Keyboard layout"
+                color: "#cbd3dd"
+                font.pixelSize: 10
+            }
+
+            ComboBox {
+                Layout.preferredWidth: 220
+                model: root.keyboardLayouts
+                textRole: "label"
+                currentIndex: root.keyboardLayoutIndex()
+
+                onActivated: {
+                    const entry = root.keyboardLayouts[currentIndex]
+                    if (entry)
+                        root.settingsState.setKeyboardLayout(entry.code)
+                }
+            }
 
             Text {
                 text: "Natural scrolling"
