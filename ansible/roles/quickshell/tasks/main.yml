@@ -21,6 +21,13 @@
     state: link
     force: true
 
+- name: Install sn0w graphical session anchor
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../config/systemd/user/sn0w-graphical-session.service"
+    dest: "{{ ansible_facts['user_dir'] }}/.config/systemd/user/sn0w-graphical-session.service"
+    state: link
+    force: true
+
 - name: Disable legacy sn0w shell user service
   ansible.builtin.systemd_service:
     name: sn0w-shell.service
