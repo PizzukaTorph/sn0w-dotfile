@@ -80,8 +80,19 @@ FloatingWindow {
                                 id: projectCard
                                 required property var modelData
                                 property bool sessionRunning: modelData.session && modelData.session.running === true
+                                property int windowCount: modelData.session && modelData.session.windowCount ? modelData.session.windowCount : 0
+                                property int runningServices: {
+                                    let count = 0
+                                    const services = modelData.services || []
+                                    for (let i = 0; i < services.length; ++i) {
+                                        if ((services[i].state || "").toLowerCase() === "running")
+                                            count++
+                                    }
+                                    return count
+                                }
+                                property int totalServices: (modelData.services || []).length
                                 width: projectColumn.width
-                                height: 84
+                                height: 92
                                 radius: 11
                                 color: projectMouse.containsMouse ? "#1b222c" : "#14191f"
                                 border.width: 1
@@ -134,21 +145,30 @@ FloatingWindow {
                                         }
 
                                         Text {
-                                            text: projectCard.sessionRunning ? "Session running" : "Session stopped"
+                                            text: {
+                                                if (!projectCard.sessionRunning)
+                                                    return "Session stopped"
+                                                let parts = ["Session running"]
+                                                if (projectCard.windowCount > 0)
+                                                    parts.push(projectCard.windowCount + " windows")
+                                                if (projectCard.totalServices > 0)
+                                                    parts.push(projectCard.runningServices + "/" + projectCard.totalServices + " services")
+                                                return parts.join(" · ")
+                                            }
                                             color: projectCard.sessionRunning ? "#8fb69d" : "#596474"
                                             font.pixelSize: 9
                                         }
                                     }
 
                                     Rectangle {
-                                        Layout.preferredWidth: 58
+                                        Layout.preferredWidth: 62
                                         Layout.preferredHeight: 30
                                         radius: 8
                                         color: sessionMouse.containsMouse ? "#303946" : "#222a34"
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: projectCard.sessionRunning ? "Stop" : "Start"
+                                            text: projectCard.sessionRunning ? "Resume" : "Start"
                                             color: "#f4f7fb"
                                             font.pixelSize: 10
                                             font.bold: true
@@ -161,10 +181,33 @@ FloatingWindow {
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (projectCard.sessionRunning)
-                                                    projectState.stopProject(projectCard.modelData.path)
+                                                    projectState.resumeProject(projectCard.modelData.path)
                                                 else
                                                     projectState.startProject(projectCard.modelData.path)
                                             }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 48
+                                        Layout.preferredHeight: 30
+                                        radius: 8
+                                        visible: projectCard.sessionRunning
+                                        color: stopMouse.containsMouse ? "#3a252a" : "#251d21"
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "Stop"
+                                            color: "#d8b4ba"
+                                            font.pixelSize: 10
+                                        }
+
+                                        MouseArea {
+                                            id: stopMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: projectState.stopProject(projectCard.modelData.path)
                                         }
                                     }
 
