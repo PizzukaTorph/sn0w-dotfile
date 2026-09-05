@@ -24,6 +24,7 @@ FloatingWindow {
     title: "sn0w Launcher"
     implicitWidth: 620
     implicitHeight: 410
+    color: "transparent"
 
     function mode(): string {
         const text = query.text.trim().toLowerCase()
