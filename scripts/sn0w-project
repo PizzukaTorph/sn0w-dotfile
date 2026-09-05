@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -95,6 +96,19 @@ def compose_args(project):
     return None
 
 
+def require_compose(project):
+    compose = compose_args(project)
+    if not compose:
+        print("sn0w-project: project has no Docker Compose configuration", file=sys.stderr)
+        raise SystemExit(3)
+    return compose
+
+
+def terminal_args(value):
+    parts = shlex.split(value or "foot")
+    return parts or ["foot"]
+
+
 def hypr_clients():
     raw = output(["hyprctl", "-j", "clients"])
     if not raw:
@@ -120,42 +134,54 @@ def focus_workspace(project):
     run(["hyprctl", "dispatch", "workspace", f"name:{project['workspace']}"], quiet=True)
 
 
+def compose_services(project):
+    root = project["path"]
+    compose = compose_args(project)
+    services = []
+    if not compose:
+        return services
+    raw = output(compose + ["ps", "--format", "json"], cwd=root)
+    if not raw:
+        return services
+    try:
+        decoded = json.loads(raw)
+        rows = decoded if isinstance(decoded, list) else [decoded]
+    except json.JSONDecodeError:
+        rows = []
+        for line in raw.splitlines():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    for row in rows:
+        publishers = row.get("Publishers") or []
+        ports = []
+        if isinstance(publishers, list):
+            for pub in publishers:
+                if not isinstance(pub, dict):
+                    continue
+                published = pub.get("PublishedPort")
+                target = pub.get("TargetPort")
+                if published:
+                    ports.append({
+                        "published": int(published),
+                        "target": int(target) if target else None,
+                        "protocol": str(pub.get("Protocol") or "tcp"),
+                    })
+        services.append({
+            "name": row.get("Service") or row.get("Name", ""),
+            "state": row.get("State", ""),
+            "health": row.get("Health", ""),
+            "ports": ports,
+        })
+    return services
+
+
 def project_status(project):
     root = project["path"]
     branch = output(["git", "-C", root, "branch", "--show-current"])
     dirty = bool(output(["git", "-C", root, "status", "--porcelain"]))
-    compose = compose_args(project)
-    services = []
-    if compose:
-        raw = output(compose + ["ps", "--format", "json"], cwd=root)
-        if raw:
-            try:
-                decoded = json.loads(raw)
-                rows = decoded if isinstance(decoded, list) else [decoded]
-            except json.JSONDecodeError:
-                rows = []
-                for line in raw.splitlines():
-                    try:
-                        rows.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
-            for row in rows:
-                publishers = row.get("Publishers") or []
-                ports = []
-                if isinstance(publishers, list):
-                    for pub in publishers:
-                        if not isinstance(pub, dict):
-                            continue
-                        published = pub.get("PublishedPort")
-                        target = pub.get("TargetPort")
-                        if published:
-                            ports.append(f"{published}:{target}" if target else str(published))
-                services.append({
-                    "name": row.get("Service") or row.get("Name", ""),
-                    "state": row.get("State", ""),
-                    "health": row.get("Health", ""),
-                    "ports": ports,
-                })
+    services = compose_services(project)
     clients = workspace_clients(project)
     state = read_state(project)
     compose_running = any(str(s.get("state", "")).lower() == "running" for s in services)
@@ -198,8 +224,6 @@ def launch_project(project):
 def start(project, resume=False):
     status = project_status(project)
     if status["session"].get("running"):
-        # Start is idempotent. Resume and repeated Start both focus the existing
-        # project workspace instead of duplicating editor/browser/terminal windows.
         focus_workspace(project)
     else:
         launch_project(project)
@@ -210,15 +234,43 @@ def stop(project, keep_services=False):
     compose = compose_args(project)
     if compose and not keep_services:
         run(compose + ["stop"], cwd=project["path"])
-    # Hyprland's closewindow selector is window-oriented, not workspace-oriented.
-    # Resolve the project's clients first and close them by address so another
-    # workspace can never be touched accidentally.
     for client in workspace_clients(project):
         address = str(client.get("address", ""))
         if address:
             run(["hyprctl", "dispatch", "closewindow", f"address:{address}"], quiet=True)
     write_state(project, False)
     print(json.dumps(project_status(project)))
+
+
+def service_logs(project, service, terminal):
+    compose = require_compose(project)
+    spawn(terminal_args(terminal) + ["-e"] + compose + ["logs", "-f", "--tail", "200", service], cwd=project["path"])
+
+
+def service_exec(project, service, terminal):
+    compose = require_compose(project)
+    spawn(terminal_args(terminal) + ["-e"] + compose + ["exec", service, "sh"], cwd=project["path"])
+
+
+def service_restart(project, service):
+    compose = require_compose(project)
+    result = run(compose + ["restart", service], cwd=project["path"])
+    raise SystemExit(result.returncode)
+
+
+def service_open(project, service):
+    match = next((s for s in compose_services(project) if s.get("name") == service), None)
+    if not match:
+        print(f"sn0w-project: service not found: {service}", file=sys.stderr)
+        raise SystemExit(4)
+    ports = match.get("ports") or []
+    if not ports:
+        print(f"sn0w-project: service has no published ports: {service}", file=sys.stderr)
+        raise SystemExit(5)
+    port = ports[0].get("published")
+    if not port:
+        raise SystemExit(5)
+    spawn(["xdg-open", f"http://127.0.0.1:{port}"])
 
 
 def main():
@@ -232,6 +284,15 @@ def main():
     p.add_argument("--keep-services", action="store_true")
     p = sub.add_parser("init")
     p.add_argument("path", nargs="?", default=".")
+    for name in ("service-logs", "service-exec"):
+        p = sub.add_parser(name)
+        p.add_argument("path")
+        p.add_argument("service")
+        p.add_argument("--terminal", default="foot")
+    for name in ("service-restart", "service-open"):
+        p = sub.add_parser(name)
+        p.add_argument("path")
+        p.add_argument("service")
     args = parser.parse_args()
     project = load_project(args.path)
     if args.command == "status":
@@ -240,6 +301,14 @@ def main():
         start(project, args.command == "resume")
     elif args.command == "stop":
         stop(project, args.keep_services)
+    elif args.command == "service-logs":
+        service_logs(project, args.service, args.terminal)
+    elif args.command == "service-exec":
+        service_exec(project, args.service, args.terminal)
+    elif args.command == "service-restart":
+        service_restart(project, args.service)
+    elif args.command == "service-open":
+        service_open(project, args.service)
     elif args.command == "init":
         target = Path(project["path"]) / ".sn0w/project.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
