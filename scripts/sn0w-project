@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
-import os
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -17,17 +15,28 @@ except ImportError:
 
 STATE_DIR = Path.home() / ".local/state/sn0w/projects"
 
+
 def run(cmd, cwd=None, check=False, quiet=False):
     kwargs = {"cwd": cwd, "text": True}
     if quiet:
         kwargs.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return subprocess.run(cmd, check=check, **kwargs)
 
+
+def output(cmd, cwd=None):
+    try:
+        return subprocess.check_output(cmd, cwd=cwd, text=True, stderr=subprocess.DEVNULL).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+
+
 def spawn(cmd, cwd=None):
     subprocess.Popen(cmd, cwd=cwd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+
 def slug(value):
     return re.sub(r"[^a-zA-Z0-9._-]+", "-", value).strip("-").lower() or "project"
+
 
 def load_project(path):
     root = Path(path).expanduser().resolve()
@@ -40,11 +49,25 @@ def load_project(path):
     name = str(data.get("name") or root.name)
     data["name"] = name
     data["path"] = str(root)
+    data["configured"] = cfg_path.exists()
     data["workspace"] = str(data.get("workspace") or f"project-{slug(name)}")
     return data
 
+
 def state_path(project):
     return STATE_DIR / f"{slug(project['path'])}.json"
+
+
+def read_state(project):
+    path = state_path(project)
+    if not path.exists():
+        return None
+    try:
+        value = json.loads(path.read_text())
+        return value if isinstance(value, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
 
 def write_state(project, running=True):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,6 +79,7 @@ def write_state(project, running=True):
         "updatedAt": int(time.time()),
     }
     state_path(project).write_text(json.dumps(payload, indent=2) + "\n")
+
 
 def compose_args(project):
     compose = project.get("compose", True)
@@ -70,37 +94,81 @@ def compose_args(project):
         return ["docker", "compose"]
     return None
 
+
+def hypr_clients():
+    raw = output(["hyprctl", "-j", "clients"])
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+        return value if isinstance(value, list) else []
+    except json.JSONDecodeError:
+        return []
+
+
+def workspace_clients(project):
+    name = project["workspace"]
+    result = []
+    for client in hypr_clients():
+        workspace = client.get("workspace") or {}
+        if str(workspace.get("name", "")) == name:
+            result.append(client)
+    return result
+
+
+def focus_workspace(project):
+    run(["hyprctl", "dispatch", "workspace", f"name:{project['workspace']}"], quiet=True)
+
+
 def project_status(project):
     root = project["path"]
-    branch = ""
-    dirty = False
-    try:
-        branch = subprocess.check_output(["git", "-C", root, "branch", "--show-current"], text=True, stderr=subprocess.DEVNULL).strip()
-        dirty = bool(subprocess.check_output(["git", "-C", root, "status", "--porcelain"], text=True, stderr=subprocess.DEVNULL).strip())
-    except subprocess.CalledProcessError:
-        pass
+    branch = output(["git", "-C", root, "branch", "--show-current"])
+    dirty = bool(output(["git", "-C", root, "status", "--porcelain"]))
     compose = compose_args(project)
     services = []
     if compose:
-        try:
-            raw = subprocess.check_output(compose + ["ps", "--format", "json"], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
-            if raw:
+        raw = output(compose + ["ps", "--format", "json"], cwd=root)
+        if raw:
+            try:
+                decoded = json.loads(raw)
+                rows = decoded if isinstance(decoded, list) else [decoded]
+            except json.JSONDecodeError:
+                rows = []
                 for line in raw.splitlines():
                     try:
-                        row = json.loads(line)
-                        services.append({"name": row.get("Service") or row.get("Name", ""), "state": row.get("State", ""), "health": row.get("Health", "")})
+                        rows.append(json.loads(line))
                     except json.JSONDecodeError:
                         pass
-        except subprocess.CalledProcessError:
-            pass
-    sp = state_path(project)
-    session = json.loads(sp.read_text()) if sp.exists() else None
+            for row in rows:
+                publishers = row.get("Publishers") or []
+                ports = []
+                if isinstance(publishers, list):
+                    for pub in publishers:
+                        if not isinstance(pub, dict):
+                            continue
+                        published = pub.get("PublishedPort")
+                        target = pub.get("TargetPort")
+                        if published:
+                            ports.append(f"{published}:{target}" if target else str(published))
+                services.append({
+                    "name": row.get("Service") or row.get("Name", ""),
+                    "state": row.get("State", ""),
+                    "health": row.get("Health", ""),
+                    "ports": ports,
+                })
+    clients = workspace_clients(project)
+    state = read_state(project)
+    compose_running = any(str(s.get("state", "")).lower() == "running" for s in services)
+    running = bool(clients) or compose_running or bool(state and state.get("running"))
+    session = dict(state or {})
+    session["running"] = running
+    session["windowCount"] = len(clients)
     return {**project, "branch": branch, "dirty": dirty, "services": services, "session": session}
 
-def start(project, resume=False):
+
+def launch_project(project):
     root = project["path"]
-    workspace = project["workspace"]
-    run(["hyprctl", "dispatch", "workspace", f"name:{workspace}"], quiet=True)
+    focus_workspace(project)
     compose = compose_args(project)
     if compose:
         run(compose + ["up", "-d"], cwd=root)
@@ -125,16 +193,33 @@ def start(project, resume=False):
         if target:
             spawn(["xdg-open", str(target)])
     write_state(project, True)
+
+
+def start(project, resume=False):
+    status = project_status(project)
+    if status["session"].get("running"):
+        # Start is idempotent. Resume and repeated Start both focus the existing
+        # project workspace instead of duplicating editor/browser/terminal windows.
+        focus_workspace(project)
+    else:
+        launch_project(project)
     print(json.dumps(project_status(project)))
+
 
 def stop(project, keep_services=False):
     compose = compose_args(project)
     if compose and not keep_services:
         run(compose + ["stop"], cwd=project["path"])
-    # Close only windows owned by the project's dedicated workspace.
-    run(["hyprctl", "dispatch", "closewindow", f"workspace:{project['workspace']}"], quiet=True)
+    # Hyprland's closewindow selector is window-oriented, not workspace-oriented.
+    # Resolve the project's clients first and close them by address so another
+    # workspace can never be touched accidentally.
+    for client in workspace_clients(project):
+        address = str(client.get("address", ""))
+        if address:
+            run(["hyprctl", "dispatch", "closewindow", f"address:{address}"], quiet=True)
     write_state(project, False)
     print(json.dumps(project_status(project)))
+
 
 def main():
     parser = argparse.ArgumentParser(prog="sn0w-project")
@@ -172,6 +257,7 @@ def main():
             "#   - http://localhost:3000\n"
         )
         print(target)
+
 
 if __name__ == "__main__":
     main()
