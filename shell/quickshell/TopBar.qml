@@ -31,9 +31,20 @@ Scope {
         }
 
         if (unhealthy > 0)
-            return running + "/" + services.length + " services · " + unhealthy + " unhealthy"
-
+            return running + "/" + services.length + " · " + unhealthy + " unhealthy"
         return running + "/" + services.length + " services"
+    }
+
+    function projectHealthy(): bool {
+        if (!projectState || !projectState.activeProject)
+            return true
+        const services = projectState.activeProject.services || []
+        for (let i = 0; i < services.length; ++i) {
+            const health = (services[i].health || "").toLowerCase()
+            if (health.length > 0 && health !== "healthy")
+                return false
+        }
+        return true
     }
 
     SystemClock {
@@ -55,25 +66,32 @@ Scope {
                 right: true
             }
 
-            implicitHeight: 36
+            implicitHeight: 38
             color: "transparent"
 
             Rectangle {
                 anchors.fill: parent
-                color: "#e60b0d10"
-                border.width: 1
-                border.color: "#202630"
+                color: "#f20b0d10"
+                border.width: 0
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    color: "#202630"
+                }
 
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 12
                     anchors.rightMargin: 10
-                    spacing: 8
+                    spacing: 7
 
                     Rectangle {
-                        Layout.preferredWidth: brandRow.implicitWidth + 16
-                        Layout.preferredHeight: 26
-                        radius: 8
+                        Layout.preferredWidth: brandRow.implicitWidth + 18
+                        Layout.preferredHeight: 27
+                        radius: 9
                         color: brandMouse.containsMouse ? "#1b222c" : "transparent"
 
                         RowLayout {
@@ -98,7 +116,7 @@ Scope {
                             Text {
                                 text: root.mode
                                 color: "#9aa5b4"
-                                font.pixelSize: 12
+                                font.pixelSize: 11
                             }
                         }
 
@@ -106,19 +124,20 @@ Scope {
                             id: brandMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: root.launcherRequested()
                         }
                     }
 
                     Rectangle {
                         id: projectButton
-                        visible: root.projectState !== undefined && root.projectState !== null && root.projectState.activeProject !== null
-                        Layout.preferredWidth: projectRow.implicitWidth + 18
-                        Layout.preferredHeight: 26
-                        radius: 8
+                        visible: root.projectState && root.projectState.activeProject
+                        Layout.preferredWidth: Math.min(520, projectRow.implicitWidth + 18)
+                        Layout.preferredHeight: 27
+                        radius: 9
                         color: projectMouse.containsMouse ? "#1b222c" : "#141a20"
                         border.width: 1
-                        border.color: "#25303a"
+                        border.color: root.projectHealthy() ? "#253a32" : "#4a2f34"
 
                         RowLayout {
                             id: projectRow
@@ -129,7 +148,7 @@ Scope {
                                 width: 6
                                 height: 6
                                 radius: 3
-                                color: "#8fb69d"
+                                color: root.projectHealthy() ? "#8fb69d" : "#d98c8c"
                             }
 
                             Text {
@@ -151,7 +170,7 @@ Scope {
                             Text {
                                 visible: root.activeServiceSummary().length > 0
                                 text: root.activeServiceSummary()
-                                color: "#697586"
+                                color: root.projectHealthy() ? "#697586" : "#c58f98"
                                 font.pixelSize: 9
                             }
                         }
@@ -169,27 +188,43 @@ Scope {
                         Layout.fillWidth: true
                     }
 
+                    Rectangle {
+                        visible: root.systemState && root.systemState.vpnName !== "Off"
+                        Layout.preferredWidth: vpnText.implicitWidth + 14
+                        Layout.preferredHeight: 23
+                        radius: 7
+                        color: "#18231f"
+
+                        Text {
+                            id: vpnText
+                            anchors.centerIn: parent
+                            text: "VPN · " + (root.systemState ? root.systemState.vpnName : "")
+                            color: "#8fb69d"
+                            font.pixelSize: 9
+                        }
+                    }
+
                     Text {
                         visible: root.systemState !== undefined && root.systemState !== null
                         text: root.systemState && root.systemState.wifiEnabled
                               ? (root.systemState.wifiName === "Disconnected" ? "Wi-Fi" : root.systemState.wifiName)
                               : "Wi-Fi off"
                         color: "#8f9aaa"
-                        font.pixelSize: 10
+                        font.pixelSize: 9
                     }
 
                     Text {
                         visible: root.systemState !== undefined && root.systemState !== null
                         text: root.systemState ? root.systemState.battery : ""
                         color: "#8f9aaa"
-                        font.pixelSize: 10
+                        font.pixelSize: 9
                     }
 
                     Rectangle {
                         id: controlButton
                         Layout.preferredWidth: clockText.implicitWidth + 16
-                        Layout.preferredHeight: 26
-                        radius: 8
+                        Layout.preferredHeight: 27
+                        radius: 9
                         color: controlMouse.containsMouse || controlPopup.visible ? "#1b222c" : "transparent"
 
                         Text {
@@ -197,13 +232,14 @@ Scope {
                             anchors.centerIn: parent
                             text: Qt.formatDateTime(clock.date, "ddd d MMM  HH:mm")
                             color: "#e7ecf3"
-                            font.pixelSize: 12
+                            font.pixelSize: 11
                         }
 
                         MouseArea {
                             id: controlMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 powerPopup.visible = false
                                 controlPopup.visible = !controlPopup.visible
@@ -214,8 +250,8 @@ Scope {
                     Rectangle {
                         id: powerButton
                         Layout.preferredWidth: 28
-                        Layout.preferredHeight: 26
-                        radius: 8
+                        Layout.preferredHeight: 27
+                        radius: 9
                         color: powerMouse.containsMouse || powerPopup.visible ? "#322027" : "transparent"
 
                         Text {
@@ -229,6 +265,7 @@ Scope {
                             id: powerMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 controlPopup.visible = false
                                 powerPopup.visible = !powerPopup.visible
@@ -245,7 +282,7 @@ Scope {
                 anchor.gravity: Edges.Bottom | Edges.Left
                 anchor.margins.top: 8
                 implicitWidth: 410
-                implicitHeight: 500
+                implicitHeight: 520
                 color: "transparent"
                 visible: false
 
