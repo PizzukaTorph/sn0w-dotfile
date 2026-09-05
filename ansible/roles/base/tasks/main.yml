@@ -63,6 +63,7 @@
     - sn0w-session
     - sn0w-project
     - sn0w-system
+    - sn0w-smoke
 
 - name: Ensure sn0w helper scripts are executable
   ansible.builtin.file:
@@ -75,6 +76,7 @@
     - sn0w-session
     - sn0w-project
     - sn0w-system
+    - sn0w-smoke
 
 - name: Install sn0w profile marker
   ansible.builtin.copy:
