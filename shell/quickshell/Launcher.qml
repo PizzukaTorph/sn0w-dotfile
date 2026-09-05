@@ -11,6 +11,7 @@ FloatingWindow {
     required property var settingsState
     signal projectCenterRequested()
     signal settingsRequested()
+    signal closeRequested()
 
     property int selectedIndex: 0
     property var actions: [
@@ -187,8 +188,8 @@ FloatingWindow {
                             launcher.activateSelected()
                             event.accepted = true
                         } else if (event.key === Qt.Key_Escape) {
-                            launcher.visible = false
                             query.clear()
+                            launcher.closeRequested()
                             event.accepted = true
                         }
                     }
@@ -280,8 +281,8 @@ FloatingWindow {
 
                                 function activate(): void {
                                     modelData.execute()
-                                    launcher.visible = false
                                     query.clear()
+                                    launcher.closeRequested()
                                 }
 
                                 RowLayout {
@@ -354,7 +355,7 @@ FloatingWindow {
                                         actionProc.command = modelData.command
                                         actionProc.running = true
                                     }
-                                    launcher.visible = false
+                                    launcher.closeRequested()
                                 }
 
                                 RowLayout {
@@ -422,7 +423,7 @@ FloatingWindow {
                                         "exec " + launcher.settingsState.terminal + " -e sn0w-ssh " + JSON.stringify(endpointName)
                                     ]
                                     actionProc.running = true
-                                    launcher.visible = false
+                                    launcher.closeRequested()
                                 }
 
                                 RowLayout {
@@ -485,7 +486,7 @@ FloatingWindow {
 
                                 function activate(): void {
                                     launcher.projectState.openCode(modelData.path)
-                                    launcher.visible = false
+                                    launcher.closeRequested()
                                 }
 
                                 RowLayout {
