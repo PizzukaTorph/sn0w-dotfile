@@ -10,6 +10,7 @@ FloatingWindow {
     title: "sn0w Overview"
     implicitWidth: 980
     implicitHeight: 620
+    color: "transparent"
 
     Rectangle {
         anchors.fill: parent
@@ -89,8 +90,8 @@ FloatingWindow {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                hyprState.focusWorkspace(workspaceCard.modelData.id);
-                                                overview.visible = false;
+                                                hyprState.focusWorkspace(workspaceCard.modelData.id)
+                                                overview.visible = false
                                             }
                                         }
                                     }
@@ -145,8 +146,8 @@ FloatingWindow {
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
-                                                    hyprState.focusClient(windowCard.modelData.address || "");
-                                                    overview.visible = false;
+                                                    hyprState.focusClient(windowCard.modelData.address || "")
+                                                    overview.visible = false
                                                 }
                                             }
                                         }
