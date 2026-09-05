@@ -6,6 +6,7 @@ FloatingWindow {
     id: switcher
 
     required property var hyprState
+    signal closeRequested()
     property int selectedIndex: 0
 
     title: "sn0w App Switcher"
@@ -33,26 +34,25 @@ FloatingWindow {
         if (hyprState.clients.length === 0)
             return
         selectedIndex = (selectedIndex + 1) % hyprState.clients.length
-        visible = true
         Qt.callLater(ensureSelectedVisible)
     }
 
     function resetAndShow(): void {
         selectedIndex = 0
         appFlick.contentX = 0
-        visible = true
         Qt.callLater(ensureSelectedVisible)
     }
 
     function commitSelection(): void {
-        if (hyprState.clients.length === 0) {
-            visible = false
-            return
+        if (hyprState.clients.length > 0) {
+            const client = hyprState.clients[Math.min(selectedIndex, hyprState.clients.length - 1)]
+            if (client && client.address)
+                hyprState.focusClient(client.address)
         }
-        const client = hyprState.clients[Math.min(selectedIndex, hyprState.clients.length - 1)]
-        if (client && client.address)
-            hyprState.focusClient(client.address)
-        visible = false
+
+        // Quickshell 0.2.x is unreliable when remapping a previously hidden
+        // FloatingWindow. Ask the shell to destroy this switcher instance.
+        switcher.closeRequested()
     }
 
     Rectangle {
