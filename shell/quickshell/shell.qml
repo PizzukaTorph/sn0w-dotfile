@@ -57,7 +57,6 @@ ShellRoot {
 
         function onSaved(): void {
             projectState.refresh()
-            root.settingsVisible = false
         }
     }
 
@@ -79,8 +78,8 @@ ShellRoot {
     }
 
     // Quickshell 0.2.x can leave hidden FloatingWindows alive but unable to
-    // remap reliably. Frequently reopened transient shell surfaces are therefore
-    // ephemeral: false destroys the xdg-toplevel, true recreates it.
+    // remap reliably. All transient shell dialogs therefore use the same
+    // lifecycle: closing destroys the xdg-toplevel and reopening creates it.
     Loader {
         id: launcherLoader
         active: root.launcherVisible
@@ -159,17 +158,53 @@ ShellRoot {
         }
     }
 
-    SettingsWindow {
-        visible: root.settingsVisible
-        settingsState: settingsState
+    Loader {
+        id: settingsLoader
+        active: root.settingsVisible
+        asynchronous: false
+
+        sourceComponent: Component {
+            SettingsWindow {
+                settingsState: settingsState
+                visible: true
+                onVisibleChanged: {
+                    if (!visible && root.settingsVisible)
+                        root.settingsVisible = false
+                }
+            }
+        }
     }
 
-    ClipboardHistory {
-        visible: root.clipboardVisible
+    Loader {
+        id: clipboardLoader
+        active: root.clipboardVisible
+        asynchronous: false
+
+        sourceComponent: Component {
+            ClipboardHistory {
+                visible: true
+                onVisibleChanged: {
+                    if (!visible && root.clipboardVisible)
+                        root.clipboardVisible = false
+                }
+            }
+        }
     }
 
-    CapturePanel {
-        visible: root.captureVisible
+    Loader {
+        id: captureLoader
+        active: root.captureVisible
+        asynchronous: false
+
+        sourceComponent: Component {
+            CapturePanel {
+                visible: true
+                onVisibleChanged: {
+                    if (!visible && root.captureVisible)
+                        root.captureVisible = false
+                }
+            }
+        }
     }
 
     IpcHandler {
