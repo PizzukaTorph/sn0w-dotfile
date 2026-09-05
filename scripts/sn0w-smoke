@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+failures=0
+
+pass() { printf 'PASS  %s\n' "$1"; }
+fail() { printf 'FAIL  %s\n' "$1" >&2; failures=$((failures + 1)); }
+
+live=0
+if [[ -d "$runtime/hypr" ]]; then
+  for dir in "$runtime"/hypr/*; do
+    [[ -d "$dir" ]] || continue
+    sig="$(basename "$dir")"
+    if HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl version >/dev/null 2>&1; then
+      live=$((live + 1))
+    fi
+  done
+fi
+
+if [[ "$live" -eq 1 ]]; then
+  pass "exactly one live Hyprland instance"
+else
+  fail "expected one live Hyprland instance, found $live"
+fi
+
+if pgrep -x qs >/dev/null 2>&1; then
+  pass "Quickshell process is running"
+else
+  fail "Quickshell process is not running"
+fi
+
+if qs list 2>/dev/null | grep -q 'Config path: .*shell.qml'; then
+  pass "Quickshell shell.qml instance is registered"
+else
+  fail "Quickshell shell.qml instance is not registered"
+fi
+
+if sn0w-system status | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "monitors" in d and "wifi" in d and "volume" in d' 2>/dev/null; then
+  pass "system backend returns valid live state"
+else
+  fail "system backend status is invalid"
+fi
+
+if qs ipc show 2>/dev/null | grep -q 'launcher'; then
+  pass "shell IPC handlers are available"
+else
+  fail "shell IPC handlers are unavailable"
+fi
+
+if [[ $# -gt 0 ]]; then
+  project="$1"
+  if sn0w-project doctor "$project" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["checks"]["ok"] is True' 2>/dev/null; then
+    pass "project doctor: $project"
+  else
+    fail "project doctor failed: $project"
+  fi
+fi
+
+if [[ "$failures" -gt 0 ]]; then
+  printf '\n%d smoke check(s) failed.\n' "$failures" >&2
+  exit 1
+fi
+
+printf '\nAll sn0w smoke checks passed.\n'
