@@ -6,4 +6,4 @@ sn0w_power_profile: balanced
 sn0w_enable_docker: true
 sn0w_keyboard_layout: it
 sn0w_keyboard_variant: ""
-sn0w_display_scale: 1.5
+sn0w_display_scale: 1.6
