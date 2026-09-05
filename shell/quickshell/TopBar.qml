@@ -7,7 +7,34 @@ Scope {
 
     property string mode: "General"
     property var systemState
+    property var projectState
     signal launcherRequested()
+    signal projectCenterRequested()
+
+    function activeServiceSummary(): string {
+        if (!projectState || !projectState.activeProject)
+            return ""
+
+        const services = projectState.activeProject.services || []
+        if (services.length === 0)
+            return ""
+
+        let running = 0
+        let unhealthy = 0
+        for (let i = 0; i < services.length; ++i) {
+            if ((services[i].state || "").toLowerCase() === "running")
+                running++
+
+            const health = (services[i].health || "").toLowerCase()
+            if (health.length > 0 && health !== "healthy")
+                unhealthy++
+        }
+
+        if (unhealthy > 0)
+            return running + "/" + services.length + " services · " + unhealthy + " unhealthy"
+
+        return running + "/" + services.length + " services"
+    }
 
     SystemClock {
         id: clock
@@ -53,9 +80,26 @@ Scope {
                             id: brandRow
                             anchors.centerIn: parent
                             spacing: 8
-                            Text { text: "sn0w"; color: "#f4f7fb"; font.pixelSize: 14; font.bold: true }
-                            Rectangle { width: 4; height: 4; radius: 2; color: "#7d8998" }
-                            Text { text: root.mode; color: "#9aa5b4"; font.pixelSize: 12 }
+
+                            Text {
+                                text: "sn0w"
+                                color: "#f4f7fb"
+                                font.pixelSize: 14
+                                font.bold: true
+                            }
+
+                            Rectangle {
+                                width: 4
+                                height: 4
+                                radius: 2
+                                color: "#7d8998"
+                            }
+
+                            Text {
+                                text: root.mode
+                                color: "#9aa5b4"
+                                font.pixelSize: 12
+                            }
                         }
 
                         MouseArea {
@@ -66,7 +110,64 @@ Scope {
                         }
                     }
 
-                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        id: projectButton
+                        visible: root.projectState !== undefined && root.projectState !== null && root.projectState.activeProject !== null
+                        Layout.preferredWidth: projectRow.implicitWidth + 18
+                        Layout.preferredHeight: 26
+                        radius: 8
+                        color: projectMouse.containsMouse ? "#1b222c" : "#141a20"
+                        border.width: 1
+                        border.color: "#25303a"
+
+                        RowLayout {
+                            id: projectRow
+                            anchors.centerIn: parent
+                            spacing: 7
+
+                            Rectangle {
+                                width: 6
+                                height: 6
+                                radius: 3
+                                color: "#8fb69d"
+                            }
+
+                            Text {
+                                text: root.projectState && root.projectState.activeProject ? root.projectState.activeProject.name : ""
+                                color: "#edf2f7"
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+
+                            Text {
+                                visible: root.projectState && root.projectState.activeProject && root.projectState.activeProject.branch
+                                text: root.projectState && root.projectState.activeProject
+                                      ? root.projectState.activeProject.branch + (root.projectState.activeProject.dirty ? " *" : "")
+                                      : ""
+                                color: "#8f9aaa"
+                                font.pixelSize: 9
+                            }
+
+                            Text {
+                                visible: root.activeServiceSummary().length > 0
+                                text: root.activeServiceSummary()
+                                color: "#697586"
+                                font.pixelSize: 9
+                            }
+                        }
+
+                        MouseArea {
+                            id: projectMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.projectCenterRequested()
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
 
                     Text {
                         visible: root.systemState !== undefined && root.systemState !== null
@@ -117,7 +218,12 @@ Scope {
                         radius: 8
                         color: powerMouse.containsMouse || powerPopup.visible ? "#322027" : "transparent"
 
-                        Text { anchors.centerIn: parent; text: "⏻"; color: "#b9c2ce"; font.pixelSize: 14 }
+                        Text {
+                            anchors.centerIn: parent
+                            text: "⏻"
+                            color: "#b9c2ce"
+                            font.pixelSize: 14
+                        }
 
                         MouseArea {
                             id: powerMouse
@@ -160,7 +266,9 @@ Scope {
                 color: "transparent"
                 visible: false
 
-                PowerMenuContent { anchors.fill: parent }
+                PowerMenuContent {
+                    anchors.fill: parent
+                }
             }
         }
     }
