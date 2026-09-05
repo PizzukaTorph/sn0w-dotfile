@@ -4,13 +4,46 @@
 local terminal = "foot"
 local fileManager = "nautilus"
 
+local function readProfile()
+    local home = os.getenv("HOME") or ""
+    local file = io.open(home .. "/.config/sn0w/profile", "r")
+    if not file then
+        return "asahi"
+    end
+
+    local value = file:read("*l") or ""
+    file:close()
+    value = value:gsub("^%s+", ""):gsub("%s+$", "")
+    return value ~= "" and value or "asahi"
+end
+
+local profile = readProfile()
+
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("GTK_THEME", "Adwaita:dark")
 hl.env("QT_QPA_PLATFORMTHEME", "gnome")
 
-hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+-- Display defaults are profile-specific. The VM deliberately uses a stable
+-- 16:10 HiDPI mode so UTM cannot leave the session at an arbitrary tiny mode.
+-- Physical Asahi hardware stays on the panel's preferred mode with Retina-like
+-- scaling; sn0w Settings can still override scale at runtime afterwards.
+if profile == "vm" then
+    hl.monitor({
+        output = "Virtual-1",
+        mode = "2560x1600@60",
+        position = "0x0",
+        scale = 1.5,
+    })
+else
+    hl.monitor({
+        output = "",
+        mode = "preferred",
+        position = "auto",
+        scale = 2,
+    })
+end
 
 hl.config({
     general = {
