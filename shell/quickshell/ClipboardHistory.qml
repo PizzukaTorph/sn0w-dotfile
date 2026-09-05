@@ -11,10 +11,11 @@ FloatingWindow {
     implicitWidth: 620
     implicitHeight: 430
     title: "sn0w Clipboard"
+    color: "transparent"
 
     function refresh(): void {
         if (!listProc.running)
-            listProc.running = true;
+            listProc.running = true
     }
 
     onVisibleChanged: if (visible) refresh()
@@ -24,8 +25,8 @@ FloatingWindow {
         command: ["cliphist", "list"]
         stdout: StdioCollector {
             onStreamFinished: {
-                const lines = text.trim().length > 0 ? text.trim().split("\n") : [];
-                panel.entries = lines.slice(0, 40);
+                const lines = text.trim().length > 0 ? text.trim().split("\n") : []
+                panel.entries = lines.slice(0, 40)
             }
         }
     }
@@ -98,9 +99,9 @@ FloatingWindow {
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        pasteProc.command = ["sh", "-lc", "cliphist decode " + parent.entryId + " | wl-copy"];
-                                        pasteProc.running = true;
-                                        panel.visible = false;
+                                        pasteProc.command = ["sh", "-lc", "cliphist decode " + parent.entryId + " | wl-copy"]
+                                        pasteProc.running = true
+                                        panel.visible = false
                                     }
                                 }
                             }
