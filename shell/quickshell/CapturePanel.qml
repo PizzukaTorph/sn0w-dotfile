@@ -9,11 +9,12 @@ FloatingWindow {
     implicitWidth: 520
     implicitHeight: 230
     title: "sn0w Capture"
+    color: "transparent"
 
     function run(command: string): void {
-        captureProc.command = ["sh", "-lc", command];
-        captureProc.running = true;
-        visible = false;
+        captureProc.command = ["sh", "-lc", command]
+        captureProc.running = true
+        visible = false
     }
 
     Process { id: captureProc }
