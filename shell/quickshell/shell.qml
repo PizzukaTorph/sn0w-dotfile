@@ -79,8 +79,8 @@ ShellRoot {
     }
 
     // Quickshell 0.2.x can leave hidden FloatingWindows alive but unable to
-    // remap reliably. Transient shell surfaces that are frequently reopened are
-    // therefore ephemeral: false destroys the xdg-toplevel, true recreates it.
+    // remap reliably. Frequently reopened transient shell surfaces are therefore
+    // ephemeral: false destroys the xdg-toplevel, true recreates it.
     Loader {
         id: launcherLoader
         active: root.launcherVisible
@@ -127,9 +127,19 @@ ShellRoot {
         }
     }
 
-    Overview {
-        visible: root.overviewVisible
-        hyprState: hyprState
+    Loader {
+        id: overviewLoader
+        active: root.overviewVisible
+        asynchronous: false
+
+        sourceComponent: Component {
+            Overview {
+                hyprState: hyprState
+                projectState: projectState
+                visible: true
+                onCloseRequested: root.overviewVisible = false
+            }
+        }
     }
 
     Loader {
@@ -202,8 +212,6 @@ ShellRoot {
 
         function cycle(): void {
             if (!root.switcherVisible) {
-                // Opening Cmd+Tab is also a shell-modal transition: Project
-                // Center, Launcher, Settings, Clipboard, etc. must disappear.
                 root.closeTransientSurfaces()
                 root.switcherVisible = true
                 hyprState.refresh()
@@ -231,12 +239,14 @@ ShellRoot {
             root.closeTransientSurfaces()
             root.overviewVisible = next
             hyprState.refresh()
+            projectState.refresh()
         }
 
         function open(): void {
             root.closeTransientSurfaces()
             root.overviewVisible = true
             hyprState.refresh()
+            projectState.refresh()
         }
 
         function close(): void {
