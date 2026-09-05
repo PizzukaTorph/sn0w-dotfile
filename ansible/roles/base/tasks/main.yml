@@ -111,3 +111,25 @@
           "gesturesEnabled": true
         }
       }
+
+- name: Migrate legacy VM display scale to supported value
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json
+        from pathlib import Path
+        p = Path.home() / ".config/sn0w/settings.json"
+        d = json.loads(p.read_text())
+        display = d.setdefault("display", {})
+        current = float(display.get("scale", 1.6))
+        if abs(current - 1.5) < 0.001:
+            display["scale"] = 1.6
+            p.write_text(json.dumps(d, indent=2) + "\n")
+            print("changed")
+        else:
+            print("ok")
+  register: sn0w_vm_scale_migration
+  changed_when: sn0w_vm_scale_migration.stdout == "changed"
+  when: sn0w_profile == "vm"
