@@ -63,29 +63,35 @@ ShellRoot {
         }
     }
 
-    Launcher {
-        id: launcher
-        visible: root.launcherVisible
-        projectState: projectState
-        settingsState: settingsState
+    // Quickshell 0.2.x can leave a hidden FloatingWindow alive but unable to
+    // remap after visible flips false -> true. Treat the launcher as an
+    // ephemeral surface instead: closing destroys the window and opening
+    // creates a fresh xdg-toplevel every time.
+    Loader {
+        id: launcherLoader
+        active: root.launcherVisible
+        asynchronous: false
 
-        onCloseRequested: root.launcherVisible = false
+        sourceComponent: Component {
+            Launcher {
+                projectState: projectState
+                settingsState: settingsState
+                visible: true
 
-        onVisibleChanged: {
-            if (!visible && root.launcherVisible)
-                root.launcherVisible = false
-        }
+                onCloseRequested: root.launcherVisible = false
 
-        onProjectCenterRequested: {
-            root.closeTransientSurfaces()
-            projectState.refresh()
-            root.projectCenterVisible = true
-        }
+                onProjectCenterRequested: {
+                    root.closeTransientSurfaces()
+                    projectState.refresh()
+                    root.projectCenterVisible = true
+                }
 
-        onSettingsRequested: {
-            root.closeTransientSurfaces()
-            settingsState.load()
-            root.settingsVisible = true
+                onSettingsRequested: {
+                    root.closeTransientSurfaces()
+                    settingsState.load()
+                    root.settingsVisible = true
+                }
+            }
         }
     }
 
