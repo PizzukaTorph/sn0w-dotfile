@@ -338,5 +338,6 @@ ColumnLayout {
     }
 
     SystemSettingsCard {
+        settingsState: root.settingsState
     }
 }
