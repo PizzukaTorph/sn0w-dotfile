@@ -64,9 +64,17 @@ ShellRoot {
     }
 
     Launcher {
+        id: launcher
         visible: root.launcherVisible
         projectState: projectState
         settingsState: settingsState
+
+        onCloseRequested: root.launcherVisible = false
+
+        onVisibleChanged: {
+            if (!visible && root.launcherVisible)
+                root.launcherVisible = false
+        }
 
         onProjectCenterRequested: {
             root.closeTransientSurfaces()
