@@ -14,230 +14,99 @@ Scope {
     property int volume: 0
     property bool muted: false
     property int brightness: -1
-    property string battery: "AC"
+    property int batteryPercent: -1
+    property string batteryStatus: "AC"
+    property string battery: batteryPercent >= 0 ? batteryPercent + "%" : "AC"
     property string hostName: "sn0w"
     property string ipAddress: "—"
+    property var monitors: []
+    property bool busy: false
 
     function refresh(): void {
-        if (!wifiProc.running) wifiProc.running = true;
-        if (!ssidProc.running) ssidProc.running = true;
-        if (!btProc.running) btProc.running = true;
-        if (!vpnProc.running) vpnProc.running = true;
-        if (!vpnAvailableProc.running) vpnAvailableProc.running = true;
-        if (!profileProc.running) profileProc.running = true;
-        if (!volumeProc.running) volumeProc.running = true;
-        if (!brightnessProc.running) brightnessProc.running = true;
-        if (!batteryProc.running) batteryProc.running = true;
-        if (!hostProc.running) hostProc.running = true;
-        if (!ipProc.running) ipProc.running = true;
+        if (!statusProc.running)
+            statusProc.running = true
+    }
+
+    function runAction(args): void {
+        if (actionProc.running)
+            return
+        actionProc.command = ["sn0w-system"].concat(args)
+        busy = true
+        actionProc.running = true
     }
 
     function toggleWifi(): void {
-        actionProc.command = ["nmcli", "radio", "wifi", wifiEnabled ? "off" : "on"];
-        actionProc.running = true;
+        runAction(["wifi", wifiEnabled ? "off" : "on"])
     }
 
     function toggleBluetooth(): void {
-        actionProc.command = ["bluetoothctl", "power", bluetoothPowered ? "off" : "on"];
-        actionProc.running = true;
+        runAction(["bluetooth", bluetoothPowered ? "off" : "on"])
     }
 
     function toggleVpn(): void {
-        if (vpnName !== "Off") {
-            actionProc.command = ["nmcli", "connection", "down", vpnName];
-            actionProc.running = true;
-        } else if (vpnAvailableName.length > 0) {
-            actionProc.command = ["nmcli", "connection", "up", vpnAvailableName];
-            actionProc.running = true;
-        }
+        runAction(["vpn-toggle"])
     }
 
     function cyclePowerProfile(): void {
-        let target = "balanced";
-        if (powerProfile === "balanced") target = "performance";
-        else if (powerProfile === "performance") target = "power-saver";
-        actionProc.command = [
-            "busctl", "set-property",
-            "org.freedesktop.UPower.PowerProfiles",
-            "/org/freedesktop/UPower/PowerProfiles",
-            "org.freedesktop.UPower.PowerProfiles",
-            "ActiveProfile", "s", target
-        ];
-        actionProc.running = true;
+        let target = "balanced"
+        if (powerProfile === "balanced")
+            target = "performance"
+        else if (powerProfile === "performance")
+            target = "power-saver"
+        runAction(["power-profile", target])
+    }
+
+    function setPowerProfile(value: string): void {
+        runAction(["power-profile", value])
     }
 
     function setVolume(percent: int): void {
-        const safe = Math.max(0, Math.min(100, percent));
-        actionProc.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", safe + "%"];
-        actionProc.running = true;
+        const safe = Math.max(0, Math.min(100, percent))
+        volume = safe
+        runAction(["volume", String(safe)])
     }
 
     function toggleMute(): void {
-        actionProc.command = ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"];
-        actionProc.running = true;
+        runAction(["mute-toggle"])
     }
 
     function setBrightness(percent: int): void {
-        if (brightness < 0) return;
-        const safe = Math.max(1, Math.min(100, percent));
-        actionProc.command = ["brightnessctl", "set", safe + "%"];
-        actionProc.running = true;
+        if (brightness < 0)
+            return
+        const safe = Math.max(1, Math.min(100, percent))
+        brightness = safe
+        runAction(["brightness", String(safe)])
+    }
+
+    function setDisplayScale(scale: real): void {
+        runAction(["display-scale", Number(scale).toFixed(2)])
     }
 
     Process {
-        id: wifiProc
-        command: ["nmcli", "radio", "wifi"]
+        id: statusProc
+        command: ["sn0w-system", "status"]
         running: true
-        stdout: StdioCollector {
-            onStreamFinished: root.wifiEnabled = text.trim() === "enabled"
-        }
-    }
 
-    Process {
-        id: ssidProc
-        command: ["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]
-        running: true
         stdout: StdioCollector {
             onStreamFinished: {
-                const rows = text.trim().split("\n");
-                root.wifiName = "Disconnected";
-                for (const row of rows) {
-                    if (row.indexOf("yes:") === 0) {
-                        root.wifiName = row.slice(4);
-                        break;
-                    }
+                try {
+                    const data = JSON.parse(text)
+                    root.wifiEnabled = data.wifi === true
+                    root.wifiName = data.wifiName || "Disconnected"
+                    root.bluetoothPowered = data.bluetooth === true
+                    root.vpnName = data.vpn || "Off"
+                    root.vpnAvailableName = data.vpnAvailable || ""
+                    root.powerProfile = data.powerProfile || "unknown"
+                    root.volume = data.volume !== undefined ? data.volume : 0
+                    root.muted = data.muted === true
+                    root.brightness = data.brightness !== undefined ? data.brightness : -1
+                    root.batteryPercent = data.battery !== undefined ? data.battery : -1
+                    root.batteryStatus = data.batteryStatus || "AC"
+                    root.hostName = data.hostName || "sn0w"
+                    root.ipAddress = data.ipAddress || "—"
+                    root.monitors = data.monitors || []
+                } catch (e) {
                 }
-            }
-        }
-    }
-
-    Process {
-        id: btProc
-        command: ["bluetoothctl", "show"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: root.bluetoothPowered = text.indexOf("Powered: yes") >= 0
-        }
-    }
-
-    Process {
-        id: vpnProc
-        command: ["nmcli", "-t", "-f", "TYPE,NAME", "connection", "show", "--active"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.vpnName = "Off";
-                const rows = text.trim().split("\n");
-                for (const row of rows) {
-                    const split = row.indexOf(":");
-                    if (split < 0) continue;
-                    const type = row.slice(0, split);
-                    const name = row.slice(split + 1);
-                    if (type === "wireguard" || type === "vpn") {
-                        root.vpnName = name;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    Process {
-        id: vpnAvailableProc
-        command: ["nmcli", "-t", "-f", "TYPE,NAME", "connection", "show"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.vpnAvailableName = "";
-                const rows = text.trim().split("\n");
-                for (const row of rows) {
-                    const split = row.indexOf(":");
-                    if (split < 0) continue;
-                    const type = row.slice(0, split);
-                    const name = row.slice(split + 1);
-                    if (type === "wireguard" || type === "vpn") {
-                        root.vpnAvailableName = name;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    Process {
-        id: profileProc
-        command: [
-            "busctl", "get-property",
-            "org.freedesktop.UPower.PowerProfiles",
-            "/org/freedesktop/UPower/PowerProfiles",
-            "org.freedesktop.UPower.PowerProfiles",
-            "ActiveProfile"
-        ]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const match = text.match(/\"([^\"]+)\"/);
-                root.powerProfile = match ? match[1] : "unknown";
-            }
-        }
-    }
-
-    Process {
-        id: volumeProc
-        command: ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const match = text.match(/Volume:\s+([0-9.]+)/);
-                root.volume = match ? Math.round(Number(match[1]) * 100) : 0;
-                root.muted = text.indexOf("MUTED") >= 0;
-            }
-        }
-    }
-
-    Process {
-        id: brightnessProc
-        command: ["brightnessctl", "-m"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const fields = text.trim().split(",");
-                root.brightness = fields.length >= 4 ? Number(fields[3].replace("%", "")) : -1;
-            }
-        }
-    }
-
-    Process {
-        id: batteryProc
-        command: ["sh", "-lc", "for b in /sys/class/power_supply/BAT*; do if [ -r \"$b/capacity\" ]; then cat \"$b/capacity\"; exit; fi; done"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const value = text.trim();
-                root.battery = value.length > 0 ? value + "%" : "AC";
-            }
-        }
-    }
-
-    Process {
-        id: hostProc
-        command: ["hostname"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (text.trim().length > 0) root.hostName = text.trim();
-            }
-        }
-    }
-
-    Process {
-        id: ipProc
-        command: ["hostname", "-I"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const addresses = text.trim().split(/\s+/);
-                root.ipAddress = addresses.length > 0 && addresses[0].length > 0 ? addresses[0] : "—";
             }
         }
     }
@@ -245,18 +114,22 @@ Scope {
     Process {
         id: actionProc
         onRunningChanged: {
-            if (!running) refreshTimer.restart();
+            if (!running) {
+                root.busy = false
+                refreshDelay.restart()
+            }
         }
     }
 
     Timer {
-        id: refreshTimer
-        interval: 500
+        id: refreshDelay
+        interval: 300
+        repeat: false
         onTriggered: root.refresh()
     }
 
     Timer {
-        interval: 5000
+        interval: 4000
         running: true
         repeat: true
         onTriggered: root.refresh()
