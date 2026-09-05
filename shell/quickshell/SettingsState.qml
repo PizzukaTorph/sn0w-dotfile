@@ -11,6 +11,7 @@ Item {
     property string editor: "code"
     property string screenshotsDir: "~/Pictures/Screenshots"
     property string recordingsDir: "~/Videos/Captures"
+    property real displayScale: 1.6
 
     property string keyboardLayout: "us"
     property string keyboardVariant: ""
@@ -81,6 +82,9 @@ Item {
             capture: {
                 screenshotsDir: screenshotsDir,
                 recordingsDir: recordingsDir
+            },
+            display: {
+                scale: displayScale
             },
             input: {
                 keyboardLayout: keyboardLayout,
@@ -155,6 +159,19 @@ Item {
         if (inputProc.running)
             inputProc.running = false
         inputProc.running = true
+    }
+
+    function applyDisplaySettings(): void {
+        displayProc.command = ["sn0w-system", "display-scale", displayScale.toFixed(2)]
+        if (displayProc.running)
+            displayProc.running = false
+        displayProc.running = true
+    }
+
+    function setDisplayScale(value: real): void {
+        displayScale = Math.max(0.5, Math.min(4.0, value))
+        applyDisplaySettings()
+        save()
     }
 
     function setKeyboardMap(layout: string, variant: string): void {
@@ -288,7 +305,7 @@ Item {
         command: [
             "python3",
             "-c",
-            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'input':{'keyboardLayout':'us','keyboardVariant':'','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
+            "import json,os; p=os.path.expanduser('~/.config/sn0w/settings.json'); profile_path=os.path.expanduser('~/.config/sn0w/profile'); profile=open(profile_path).read().strip() if os.path.exists(profile_path) else 'asahi'; default_scale=1.6 if profile=='vm' else 2.0; d={'projects':{'roots':['~/Code','~/Projects','~/Dev','/mnt']},'ssh':{'hosts':[]},'apps':{'terminal':'foot','fileManager':'nautilus','editor':'code'},'capture':{'screenshotsDir':'~/Pictures/Screenshots','recordingsDir':'~/Videos/Captures'},'display':{'scale':default_scale},'input':{'keyboardLayout':'us','keyboardVariant':'','naturalScroll':True,'tapToClick':True,'twoFingerRightClick':True,'tapAndDrag':True,'dragLock':1,'disableWhileTyping':True,'pointerSpeed':0.0,'touchpadScrollFactor':1.0,'mouseScrollFactor':1.0,'gesturesEnabled':True}}; os.makedirs(os.path.dirname(p),exist_ok=True);\nif os.path.exists(p):\n  try:\n    u=json.load(open(p));\n    for k,v in u.items():\n      if isinstance(v,dict) and isinstance(d.get(k),dict): d[k].update(v)\n      else: d[k]=v\n  except Exception: pass\nelse:\n  json.dump(d,open(p,'w'),indent=2)\nprint(json.dumps(d))"
         ]
         running: true
 
@@ -303,6 +320,7 @@ Item {
                     root.editor = data.apps && data.apps.editor ? data.apps.editor : root.editor
                     root.screenshotsDir = data.capture && data.capture.screenshotsDir ? data.capture.screenshotsDir : root.screenshotsDir
                     root.recordingsDir = data.capture && data.capture.recordingsDir ? data.capture.recordingsDir : root.recordingsDir
+                    root.displayScale = data.display && data.display.scale !== undefined ? Number(data.display.scale) : root.displayScale
 
                     const input = data.input || {}
                     root.keyboardLayout = input.keyboardLayout || "us"
@@ -321,6 +339,7 @@ Item {
                     root.loaded = true
                     root.status = "Loaded"
                     root.applyInputSettings()
+                    root.applyDisplaySettings()
                 } catch (e) {
                     root.loaded = false
                     root.status = "Load failed"
@@ -355,6 +374,10 @@ Item {
 
     Process {
         id: inputProc
+    }
+
+    Process {
+        id: displayProc
     }
 
     Process {
