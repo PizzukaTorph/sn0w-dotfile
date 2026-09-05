@@ -25,47 +25,16 @@ FloatingWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-
                 ColumnLayout {
                     spacing: 1
-
-                    Text {
-                        text: "Project Center"
-                        color: "#f4f7fb"
-                        font.pixelSize: 22
-                        font.bold: true
-                    }
-
-                    Text {
-                        text: projectState.projects.length + " detected Git projects"
-                        color: "#697586"
-                        font.pixelSize: 10
-                    }
+                    Text { text: "Project Center"; color: "#f4f7fb"; font.pixelSize: 22; font.bold: true }
+                    Text { text: projectState.projects.length + " detected Git projects"; color: "#697586"; font.pixelSize: 10 }
                 }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
+                Item { Layout.fillWidth: true }
                 ColumnLayout {
                     spacing: 1
-
-                    Text {
-                        Layout.alignment: Qt.AlignRight
-                        text: projectState.actionStatus
-                        color: projectState.lastError.length > 0 ? "#d98c8c" : "#8f9aaa"
-                        font.pixelSize: 10
-                    }
-
-                    Text {
-                        Layout.alignment: Qt.AlignRight
-                        visible: projectState.lastError.length > 0
-                        text: projectState.lastError
-                        color: "#9d6e76"
-                        font.pixelSize: 8
-                        elide: Text.ElideRight
-                        Layout.preferredWidth: 320
-                    }
+                    Text { Layout.alignment: Qt.AlignRight; text: projectState.actionStatus; color: projectState.lastError.length > 0 ? "#d98c8c" : "#8f9aaa"; font.pixelSize: 10 }
+                    Text { Layout.alignment: Qt.AlignRight; visible: projectState.lastError.length > 0; text: projectState.lastError; color: "#9d6e76"; font.pixelSize: 8; elide: Text.ElideRight; Layout.preferredWidth: 320 }
                 }
             }
 
@@ -90,24 +59,14 @@ FloatingWindow {
 
                         Repeater {
                             model: projectState.projects
-
                             delegate: Rectangle {
                                 id: projectCard
                                 required property var modelData
                                 property bool sessionRunning: modelData.session && modelData.session.running === true
                                 property bool sessionLaunching: modelData.session && modelData.session.launching === true
-                                property string sessionPhase: modelData.session && modelData.session.phase ? modelData.session.phase : "stopped"
                                 property int windowCount: modelData.session && modelData.session.windowCount ? modelData.session.windowCount : 0
                                 property var services: modelData.services || []
                                 property var doctor: projectState.doctorResults[modelData.path] || null
-                                property int runningServices: {
-                                    let count = 0
-                                    for (let i = 0; i < services.length; ++i) {
-                                        if ((services[i].state || "").toLowerCase() === "running")
-                                            count++
-                                    }
-                                    return count
-                                }
                                 property int readyServices: {
                                     let count = 0
                                     for (let i = 0; i < services.length; ++i) {
@@ -140,14 +99,7 @@ FloatingWindow {
                                             Layout.preferredHeight: 40
                                             radius: 11
                                             color: projectCard.sessionRunning ? "#26352e" : "#252d38"
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: projectCard.sessionLaunching ? "…" : (projectCard.sessionRunning ? "●" : "◆")
-                                                color: projectCard.sessionLaunching ? "#d9a56f" : "#dce3ec"
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                            }
+                                            Text { anchors.centerIn: parent; text: projectCard.sessionLaunching ? "…" : (projectCard.sessionRunning ? "●" : "◆"); color: projectCard.sessionLaunching ? "#d9a56f" : "#dce3ec"; font.pixelSize: 14; font.bold: true }
                                         }
 
                                         ColumnLayout {
@@ -155,56 +107,52 @@ FloatingWindow {
                                             spacing: 2
 
                                             RowLayout {
-                                                Text {
-                                                    text: projectCard.modelData.name
-                                                    color: "#f4f7fb"
-                                                    font.pixelSize: 14
-                                                    font.bold: true
+                                                Rectangle {
+                                                    Layout.preferredWidth: projectNameText.implicitWidth + 12
+                                                    Layout.preferredHeight: 24
+                                                    radius: 7
+                                                    color: projectNameMouse.containsMouse ? "#232c36" : "transparent"
+                                                    Text {
+                                                        id: projectNameText
+                                                        anchors.centerIn: parent
+                                                        text: projectCard.modelData.name
+                                                        color: projectNameMouse.containsMouse ? "#ffffff" : "#f4f7fb"
+                                                        font.pixelSize: 14
+                                                        font.bold: true
+                                                    }
+                                                    MouseArea {
+                                                        id: projectNameMouse
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: {
+                                                            if (projectCard.sessionRunning)
+                                                                projectState.resumeProject(projectCard.modelData.path)
+                                                            else
+                                                                projectState.startProject(projectCard.modelData.path)
+                                                            panel.visible = false
+                                                        }
+                                                    }
                                                 }
-
-                                                Text {
-                                                    text: projectCard.modelData.branch ? "  " + projectCard.modelData.branch + (projectCard.modelData.dirty ? " *" : "") : ""
-                                                    color: "#8f9aaa"
-                                                    font.pixelSize: 10
-                                                }
-
+                                                Text { text: projectCard.modelData.branch ? "  " + projectCard.modelData.branch + (projectCard.modelData.dirty ? " *" : "") : ""; color: "#8f9aaa"; font.pixelSize: 10 }
                                                 Rectangle {
                                                     visible: projectCard.doctor !== null
                                                     Layout.preferredWidth: doctorText.implicitWidth + 12
                                                     Layout.preferredHeight: 20
                                                     radius: 6
                                                     color: projectCard.doctor && projectCard.doctor.ok ? "#1d2b24" : "#302127"
-
-                                                    Text {
-                                                        id: doctorText
-                                                        anchors.centerIn: parent
-                                                        text: projectCard.doctor && projectCard.doctor.ok ? "ready" : "check failed"
-                                                        color: projectCard.doctor && projectCard.doctor.ok ? "#8fb69d" : "#d98c8c"
-                                                        font.pixelSize: 8
-                                                    }
+                                                    Text { id: doctorText; anchors.centerIn: parent; text: projectCard.doctor && projectCard.doctor.ok ? "ready" : "check failed"; color: projectCard.doctor && projectCard.doctor.ok ? "#8fb69d" : "#d98c8c"; font.pixelSize: 8 }
                                                 }
                                             }
 
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: projectCard.modelData.path
-                                                color: "#697586"
-                                                font.pixelSize: 9
-                                                elide: Text.ElideMiddle
-                                            }
-
+                                            Text { Layout.fillWidth: true; text: projectCard.modelData.path; color: "#697586"; font.pixelSize: 9; elide: Text.ElideMiddle }
                                             Text {
                                                 text: {
-                                                    if (projectCard.sessionLaunching)
-                                                        return "Session launching…"
-                                                    if (!projectCard.sessionRunning)
-                                                        return "Session stopped"
-
+                                                    if (projectCard.sessionLaunching) return "Session launching…"
+                                                    if (!projectCard.sessionRunning) return "Session stopped · click project name to open workspace"
                                                     let parts = ["Session running"]
-                                                    if (projectCard.windowCount > 0)
-                                                        parts.push(projectCard.windowCount + " windows")
-                                                    if (projectCard.totalServices > 0)
-                                                        parts.push(projectCard.readyServices + "/" + projectCard.totalServices + " ready")
+                                                    if (projectCard.windowCount > 0) parts.push(projectCard.windowCount + " windows")
+                                                    if (projectCard.totalServices > 0) parts.push(projectCard.readyServices + "/" + projectCard.totalServices + " ready")
                                                     return parts.join(" · ")
                                                 }
                                                 color: projectCard.sessionLaunching ? "#d9a56f" : (projectCard.sessionRunning ? "#8fb69d" : "#596474")
@@ -213,107 +161,39 @@ FloatingWindow {
                                         }
 
                                         Rectangle {
-                                            Layout.preferredWidth: 54
-                                            Layout.preferredHeight: 30
-                                            radius: 8
+                                            Layout.preferredWidth: 54; Layout.preferredHeight: 30; radius: 8
                                             color: doctorMouse.containsMouse ? "#29313c" : "#1b222c"
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "Check"
-                                                color: "#cbd3dd"
-                                                font.pixelSize: 9
-                                            }
-
-                                            MouseArea {
-                                                id: doctorMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: projectState.doctorProject(projectCard.modelData.path)
-                                            }
+                                            Text { anchors.centerIn: parent; text: "Check"; color: "#cbd3dd"; font.pixelSize: 9 }
+                                            MouseArea { id: doctorMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: projectState.doctorProject(projectCard.modelData.path) }
                                         }
-
                                         Rectangle {
-                                            Layout.preferredWidth: 62
-                                            Layout.preferredHeight: 30
-                                            radius: 8
+                                            Layout.preferredWidth: 62; Layout.preferredHeight: 30; radius: 8
                                             color: sessionMouse.containsMouse ? "#303946" : "#222a34"
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: projectCard.sessionRunning ? "Resume" : "Start"
-                                                color: "#f4f7fb"
-                                                font.pixelSize: 10
-                                                font.bold: true
-                                            }
-
+                                            Text { anchors.centerIn: parent; text: projectCard.sessionRunning ? "Resume" : "Start"; color: "#f4f7fb"; font.pixelSize: 10; font.bold: true }
                                             MouseArea {
-                                                id: sessionMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (projectCard.sessionRunning)
-                                                        projectState.resumeProject(projectCard.modelData.path)
-                                                    else
-                                                        projectState.startProject(projectCard.modelData.path)
-                                                }
+                                                id: sessionMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                                onClicked: projectCard.sessionRunning ? projectState.resumeProject(projectCard.modelData.path) : projectState.startProject(projectCard.modelData.path)
                                             }
                                         }
-
                                         Rectangle {
-                                            Layout.preferredWidth: 48
-                                            Layout.preferredHeight: 30
-                                            radius: 8
-                                            visible: projectCard.sessionRunning
+                                            Layout.preferredWidth: 48; Layout.preferredHeight: 30; radius: 8; visible: projectCard.sessionRunning
                                             color: stopMouse.containsMouse ? "#3a252a" : "#251d21"
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "Stop"
-                                                color: "#d8b4ba"
-                                                font.pixelSize: 10
-                                            }
-
-                                            MouseArea {
-                                                id: stopMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: projectState.stopProject(projectCard.modelData.path)
-                                            }
+                                            Text { anchors.centerIn: parent; text: "Stop"; color: "#d8b4ba"; font.pixelSize: 10 }
+                                            MouseArea { id: stopMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: projectState.stopProject(projectCard.modelData.path) }
                                         }
-
                                         Repeater {
                                             model: ["Code", "Terminal", "Files"]
-
                                             delegate: Rectangle {
                                                 required property string modelData
-                                                Layout.preferredWidth: 58
-                                                Layout.preferredHeight: 30
-                                                radius: 8
+                                                Layout.preferredWidth: 58; Layout.preferredHeight: 30; radius: 8
                                                 color: actionMouse.containsMouse ? "#29313c" : "#1b222c"
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: modelData
-                                                    color: "#dce3ec"
-                                                    font.pixelSize: 9
-                                                }
-
+                                                Text { anchors.centerIn: parent; text: modelData; color: "#dce3ec"; font.pixelSize: 9 }
                                                 MouseArea {
-                                                    id: actionMouse
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
+                                                    id: actionMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                                     onClicked: {
-                                                        if (modelData === "Code")
-                                                            projectState.openCode(projectCard.modelData.path)
-                                                        else if (modelData === "Terminal")
-                                                            projectState.openTerminal(projectCard.modelData.path)
-                                                        else
-                                                            projectState.openFiles(projectCard.modelData.path)
+                                                        if (modelData === "Code") projectState.openCode(projectCard.modelData.path)
+                                                        else if (modelData === "Terminal") projectState.openTerminal(projectCard.modelData.path)
+                                                        else projectState.openFiles(projectCard.modelData.path)
                                                     }
                                                 }
                                             }
@@ -324,90 +204,37 @@ FloatingWindow {
                                         Layout.fillWidth: true
                                         spacing: 4
                                         visible: projectCard.totalServices > 0
-
                                         Repeater {
                                             model: projectCard.services
-
                                             delegate: Rectangle {
                                                 id: serviceRow
                                                 required property var modelData
                                                 property bool running: (modelData.state || "").toLowerCase() === "running"
                                                 property bool healthy: modelData.ready === true
                                                 property bool hasPorts: (modelData.ports || []).length > 0
-
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: 34
-                                                radius: 8
-                                                color: "#0e1318"
-                                                border.width: 1
-                                                border.color: serviceRow.healthy ? "#203029" : "#29252a"
-
+                                                Layout.fillWidth: true; Layout.preferredHeight: 34; radius: 8
+                                                color: "#0e1318"; border.width: 1; border.color: serviceRow.healthy ? "#203029" : "#29252a"
                                                 RowLayout {
-                                                    anchors.fill: parent
-                                                    anchors.leftMargin: 10
-                                                    anchors.rightMargin: 8
-                                                    spacing: 8
-
-                                                    Text {
-                                                        text: serviceRow.running ? "●" : "○"
-                                                        color: serviceRow.healthy ? "#8fb69d" : (serviceRow.running ? "#d9a56f" : "#697586")
-                                                        font.pixelSize: 9
-                                                    }
-
-                                                    Text {
-                                                        Layout.preferredWidth: 150
-                                                        text: serviceRow.modelData.name
-                                                        color: "#dce3ec"
-                                                        font.pixelSize: 10
-                                                        elide: Text.ElideRight
-                                                    }
-
-                                                    Text {
-                                                        Layout.preferredWidth: 95
-                                                        text: serviceRow.modelData.health || serviceRow.modelData.state || "unknown"
-                                                        color: serviceRow.healthy ? "#8fb69d" : "#b18a91"
-                                                        font.pixelSize: 9
-                                                    }
-
-                                                    Text {
-                                                        Layout.fillWidth: true
-                                                        text: serviceRow.hasPorts ? serviceRow.modelData.ports.length + " published port" + (serviceRow.modelData.ports.length === 1 ? "" : "s") : ""
-                                                        color: "#596474"
-                                                        font.pixelSize: 9
-                                                    }
-
+                                                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8; spacing: 8
+                                                    Text { text: serviceRow.running ? "●" : "○"; color: serviceRow.healthy ? "#8fb69d" : (serviceRow.running ? "#d9a56f" : "#697586"); font.pixelSize: 9 }
+                                                    Text { Layout.preferredWidth: 150; text: serviceRow.modelData.name; color: "#dce3ec"; font.pixelSize: 10; elide: Text.ElideRight }
+                                                    Text { Layout.preferredWidth: 95; text: serviceRow.modelData.health || serviceRow.modelData.state || "unknown"; color: serviceRow.healthy ? "#8fb69d" : "#b18a91"; font.pixelSize: 9 }
+                                                    Text { Layout.fillWidth: true; text: serviceRow.hasPorts ? serviceRow.modelData.ports.length + " published port" + (serviceRow.modelData.ports.length === 1 ? "" : "s") : ""; color: "#596474"; font.pixelSize: 9 }
                                                     Repeater {
                                                         model: ["Logs", "Exec", "Open", "Restart"]
-
                                                         delegate: Rectangle {
                                                             required property string modelData
-                                                            Layout.preferredWidth: 52
-                                                            Layout.preferredHeight: 24
-                                                            radius: 7
+                                                            Layout.preferredWidth: 52; Layout.preferredHeight: 24; radius: 7
                                                             visible: modelData !== "Open" || serviceRow.hasPorts
                                                             color: serviceActionMouse.containsMouse ? "#29313c" : "#192028"
-
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: modelData
-                                                                color: "#cbd3dd"
-                                                                font.pixelSize: 8
-                                                            }
-
+                                                            Text { anchors.centerIn: parent; text: modelData; color: "#cbd3dd"; font.pixelSize: 8 }
                                                             MouseArea {
-                                                                id: serviceActionMouse
-                                                                anchors.fill: parent
-                                                                hoverEnabled: true
-                                                                cursorShape: Qt.PointingHandCursor
+                                                                id: serviceActionMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                                                 onClicked: {
-                                                                    if (modelData === "Logs")
-                                                                        projectState.openServiceLogs(projectCard.modelData.path, serviceRow.modelData.name)
-                                                                    else if (modelData === "Exec")
-                                                                        projectState.execService(projectCard.modelData.path, serviceRow.modelData.name)
-                                                                    else if (modelData === "Open")
-                                                                        projectState.openService(projectCard.modelData.path, serviceRow.modelData.name)
-                                                                    else
-                                                                        projectState.restartService(projectCard.modelData.path, serviceRow.modelData.name)
+                                                                    if (modelData === "Logs") projectState.openServiceLogs(projectCard.modelData.path, serviceRow.modelData.name)
+                                                                    else if (modelData === "Exec") projectState.execService(projectCard.modelData.path, serviceRow.modelData.name)
+                                                                    else if (modelData === "Open") projectState.openService(projectCard.modelData.path, serviceRow.modelData.name)
+                                                                    else projectState.restartService(projectCard.modelData.path, serviceRow.modelData.name)
                                                                 }
                                                             }
                                                         }
@@ -423,13 +250,7 @@ FloatingWindow {
                 }
             }
 
-            Text {
-                visible: projectState.projects.length === 0
-                Layout.alignment: Qt.AlignHCenter
-                text: "No Git projects detected in configured project folders"
-                color: "#596474"
-                font.pixelSize: 10
-            }
+            Text { visible: projectState.projects.length === 0; Layout.alignment: Qt.AlignHCenter; text: "No Git projects detected in configured project folders"; color: "#596474"; font.pixelSize: 10 }
         }
     }
 }
