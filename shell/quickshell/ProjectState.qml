@@ -6,8 +6,29 @@ Item {
 
     required property var settingsState
     property var projects: []
+    property var activeProject: null
     property string activePath: ""
+    property string activeService: ""
     property string actionStatus: ""
+
+    function updateActiveProject(): void {
+        let selected = null
+        let selectedUpdatedAt = -1
+
+        for (let i = 0; i < projects.length; ++i) {
+            const project = projects[i]
+            if (!project.session || project.session.running !== true)
+                continue
+
+            const updatedAt = project.session.updatedAt || 0
+            if (selected === null || updatedAt >= selectedUpdatedAt) {
+                selected = project
+                selectedUpdatedAt = updatedAt
+            }
+        }
+
+        activeProject = selected
+    }
 
     function refresh(): void {
         if (scanProc.running)
@@ -25,7 +46,9 @@ Item {
     function runSession(action: string, path: string): void {
         if (actionProc.running)
             return
+
         activePath = path
+        activeService = ""
         actionStatus = action === "stop" ? "Stopping…" : "Starting…"
         actionProc.command = ["sn0w-project", action, path]
         actionProc.running = true
@@ -41,6 +64,46 @@ Item {
 
     function stopProject(path: string): void {
         runSession("stop", path)
+    }
+
+    function restartService(path: string, service: string): void {
+        if (actionProc.running)
+            return
+
+        activePath = path
+        activeService = service
+        actionStatus = "Restarting " + service + "…"
+        actionProc.command = ["sn0w-project", "service-restart", path, service]
+        actionProc.running = true
+    }
+
+    function openServiceLogs(path: string, service: string): void {
+        launchProc.command = [
+            "sn0w-project",
+            "service-logs",
+            path,
+            service,
+            "--terminal",
+            settingsState.terminal
+        ]
+        launchProc.running = true
+    }
+
+    function execService(path: string, service: string): void {
+        launchProc.command = [
+            "sn0w-project",
+            "service-exec",
+            path,
+            service,
+            "--terminal",
+            settingsState.terminal
+        ]
+        launchProc.running = true
+    }
+
+    function openService(path: string, service: string): void {
+        launchProc.command = ["sn0w-project", "service-open", path, service]
+        launchProc.running = true
     }
 
     function openTerminal(path: string): void {
@@ -71,6 +134,8 @@ Item {
                 } catch (e) {
                     root.projects = []
                 }
+
+                root.updateActiveProject()
             }
         }
     }
@@ -82,6 +147,7 @@ Item {
             if (!running) {
                 root.actionStatus = ""
                 root.activePath = ""
+                root.activeService = ""
                 refreshTimer.restart()
             }
         }
