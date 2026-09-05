@@ -10,6 +10,8 @@ Item {
     property string activePath: ""
     property string activeService: ""
     property string actionStatus: ""
+    property string lastError: ""
+    property var doctorResults: ({})
 
     function updateActiveProject(): void {
         let selected = null
@@ -37,7 +39,7 @@ Item {
         scanProc.command = [
             "python3",
             "-c",
-            "import json,os,subprocess,sys; roots=json.loads(sys.argv[1]); out=[]; seen=set();\nfor raw in roots:\n root=os.path.abspath(os.path.expanduser(raw));\n if not os.path.isdir(root): continue\n base=root.rstrip(os.sep).count(os.sep)\n for d,dirs,files in os.walk(root):\n  depth=d.rstrip(os.sep).count(os.sep)-base\n  if '.git' in dirs and d not in seen:\n   seen.add(d);\n   try:\n    p=subprocess.run(['sn0w-project','status',d],capture_output=True,text=True,timeout=2); out.append(json.loads(p.stdout) if p.returncode==0 and p.stdout.strip() else {'name':os.path.basename(d),'path':d})\n   except Exception: out.append({'name':os.path.basename(d),'path':d})\n   dirs.remove('.git')\n   if len(out)>=40: break\n  if depth>=3: dirs[:]=[]\n if len(out)>=40: break\nprint(json.dumps(sorted(out,key=lambda x:x.get('name','').lower())))",
+            "import json,os,subprocess,sys; roots=json.loads(sys.argv[1]); out=[]; seen=set();\nfor raw in roots:\n root=os.path.abspath(os.path.expanduser(raw));\n if not os.path.isdir(root): continue\n base=root.rstrip(os.sep).count(os.sep)\n for d,dirs,files in os.walk(root):\n  depth=d.rstrip(os.sep).count(os.sep)-base\n  if '.git' in dirs and d not in seen:\n   seen.add(d);\n   try:\n    p=subprocess.run(['sn0w-project','status',d],capture_output=True,text=True,timeout=3); out.append(json.loads(p.stdout) if p.returncode==0 and p.stdout.strip() else {'name':os.path.basename(d),'path':d})\n   except Exception: out.append({'name':os.path.basename(d),'path':d})\n   dirs.remove('.git')\n   if len(out)>=40: break\n  if depth>=3: dirs[:]=[]\n if len(out)>=40: break\nprint(json.dumps(sorted(out,key=lambda x:x.get('name','').lower())))",
             JSON.stringify(settingsState.projectRoots)
         ]
         scanProc.running = true
@@ -49,7 +51,13 @@ Item {
 
         activePath = path
         activeService = ""
-        actionStatus = action === "stop" ? "Stopping…" : "Starting…"
+        lastError = ""
+        if (action === "stop")
+            actionStatus = "Stopping…"
+        else if (action === "resume")
+            actionStatus = "Resuming…"
+        else
+            actionStatus = "Starting…"
         actionProc.command = ["sn0w-project", action, path]
         actionProc.running = true
     }
@@ -66,12 +74,23 @@ Item {
         runSession("stop", path)
     }
 
+    function doctorProject(path: string): void {
+        if (doctorProc.running)
+            return
+        activePath = path
+        lastError = ""
+        actionStatus = "Checking…"
+        doctorProc.command = ["sn0w-project", "doctor", path]
+        doctorProc.running = true
+    }
+
     function restartService(path: string, service: string): void {
         if (actionProc.running)
             return
 
         activePath = path
         activeService = service
+        lastError = ""
         actionStatus = "Restarting " + service + "…"
         actionProc.command = ["sn0w-project", "service-restart", path, service]
         actionProc.running = true
@@ -134,7 +153,6 @@ Item {
                 } catch (e) {
                     root.projects = []
                 }
-
                 root.updateActiveProject()
             }
         }
@@ -143,12 +161,54 @@ Item {
     Process {
         id: actionProc
 
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.trim().length > 0)
+                    root.lastError = text.trim()
+            }
+        }
+
         onRunningChanged: {
             if (!running) {
-                root.actionStatus = ""
+                root.actionStatus = root.lastError.length > 0 ? "Action failed" : ""
                 root.activePath = ""
                 root.activeService = ""
                 refreshTimer.restart()
+                if (root.lastError.length > 0)
+                    clearStatusTimer.restart()
+            }
+        }
+    }
+
+    Process {
+        id: doctorProc
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const result = JSON.parse(text)
+                    const path = result.project && result.project.path ? result.project.path : root.activePath
+                    const next = Object.assign({}, root.doctorResults)
+                    next[path] = result.checks || {}
+                    root.doctorResults = next
+                } catch (e) {
+                }
+            }
+        }
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.trim().length > 0)
+                    root.lastError = text.trim()
+            }
+        }
+
+        onRunningChanged: {
+            if (!running) {
+                root.actionStatus = root.lastError.length > 0 ? "Check failed" : ""
+                root.activePath = ""
+                refreshTimer.restart()
+                clearStatusTimer.restart()
             }
         }
     }
@@ -165,7 +225,17 @@ Item {
     }
 
     Timer {
-        interval: 10000
+        id: clearStatusTimer
+        interval: 3500
+        repeat: false
+        onTriggered: {
+            root.actionStatus = ""
+            root.lastError = ""
+        }
+    }
+
+    Timer {
+        interval: 8000
         running: true
         repeat: true
         onTriggered: root.refresh()
