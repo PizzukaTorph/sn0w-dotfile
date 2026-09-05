@@ -55,11 +55,19 @@ ShellRoot {
     }
 
     TopBar {
-        mode: root.mode
+        mode: projectState.activeProject ? "Project" : root.mode
         systemState: systemState
+        projectState: projectState
+
         onLauncherRequested: {
             root.closeTransientSurfaces()
             root.launcherVisible = true
+        }
+
+        onProjectCenterRequested: {
+            root.closeTransientSurfaces()
+            projectState.refresh()
+            root.projectCenterVisible = true
         }
     }
 
@@ -306,6 +314,7 @@ ShellRoot {
         function brightnessUp(): void {
             if (systemState.brightness < 0)
                 return
+
             const value = Math.min(100, systemState.brightness + 5)
             systemState.setBrightness(value)
             osd.showValue("brightness", value, false)
@@ -314,6 +323,7 @@ ShellRoot {
         function brightnessDown(): void {
             if (systemState.brightness < 0)
                 return
+
             const value = Math.max(1, systemState.brightness - 5)
             systemState.setBrightness(value)
             osd.showValue("brightness", value, false)
