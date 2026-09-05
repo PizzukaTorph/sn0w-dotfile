@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import subprocess
 import sys
+from pathlib import Path
+
 
 def output(cmd, default=""):
     try:
@@ -10,33 +13,130 @@ def output(cmd, default=""):
     except Exception:
         return default
 
-def run(cmd):
-    return subprocess.run(cmd).returncode
 
-def status():
-    monitors = []
+def run(cmd):
     try:
-        monitors = json.loads(output(["hyprctl", "monitors", "-j"], "[]"))
-    except json.JSONDecodeError:
-        pass
-    volume_raw = output(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]) 
+        return subprocess.run(cmd).returncode
+    except FileNotFoundError:
+        return 127
+
+
+def parse_json(raw, default):
+    if not raw:
+        return default
+    for marker in ("[", "{"):
+        index = raw.find(marker)
+        if index >= 0:
+            try:
+                return json.loads(raw[index:])
+            except json.JSONDecodeError:
+                pass
+    return default
+
+
+def hypr_monitors():
+    value = parse_json(output(["hyprctl", "monitors", "-j"], "[]"), [])
+    return value if isinstance(value, list) else []
+
+
+def wifi_state():
+    enabled = output(["nmcli", "radio", "wifi"]) == "enabled"
+    name = "Disconnected"
+    for row in output(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]).splitlines():
+        if row.startswith("yes:"):
+            name = row[4:] or "Connected"
+            break
+    return enabled, name
+
+
+def vpn_state():
+    active = "Off"
+    available = ""
+    for row in output(["nmcli", "-t", "-f", "TYPE,NAME", "connection", "show", "--active"]).splitlines():
+        parts = row.split(":", 1)
+        if len(parts) == 2 and parts[0] in ("wireguard", "vpn"):
+            active = parts[1]
+            break
+    for row in output(["nmcli", "-t", "-f", "TYPE,NAME", "connection", "show"]).splitlines():
+        parts = row.split(":", 1)
+        if len(parts) == 2 and parts[0] in ("wireguard", "vpn"):
+            available = parts[1]
+            break
+    return active, available
+
+
+def audio_state():
+    raw = output(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]) 
     volume = 0
     try:
-        volume = round(float(volume_raw.split()[1]) * 100)
+        fields = raw.split()
+        volume = round(float(fields[1]) * 100)
     except Exception:
         pass
-    profile_raw = output([
-        "busctl", "get-property", "org.freedesktop.UPower.PowerProfiles",
-        "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles", "ActiveProfile"
+    return volume, "MUTED" in raw
+
+
+def power_profile():
+    raw = output([
+        "busctl", "get-property",
+        "org.freedesktop.UPower.PowerProfiles",
+        "/org/freedesktop/UPower/PowerProfiles",
+        "org.freedesktop.UPower.PowerProfiles",
+        "ActiveProfile",
     ])
-    profile = profile_raw.split('"')[1] if '"' in profile_raw else "unknown"
+    return raw.split('"')[1] if '"' in raw else "unknown"
+
+
+def brightness_state():
+    raw = output(["brightnessctl", "-m"])
+    fields = raw.split(",")
+    if len(fields) >= 4:
+        try:
+            return int(fields[3].replace("%", ""))
+        except ValueError:
+            pass
+    return -1
+
+
+def battery_state():
+    roots = sorted(Path("/sys/class/power_supply").glob("BAT*"))
+    for root in roots:
+        capacity = root / "capacity"
+        status_file = root / "status"
+        if capacity.exists():
+            try:
+                percent = int(capacity.read_text().strip())
+            except Exception:
+                percent = -1
+            try:
+                state = status_file.read_text().strip() if status_file.exists() else "Unknown"
+            except Exception:
+                state = "Unknown"
+            return percent, state
+    return -1, "AC"
+
+
+def status():
+    wifi, wifi_name = wifi_state()
+    vpn, vpn_available = vpn_state()
+    volume, muted = audio_state()
+    battery, battery_status = battery_state()
+    monitors = hypr_monitors()
+
     print(json.dumps({
-        "wifi": output(["nmcli", "radio", "wifi"]) == "enabled",
-        "wifiName": next((r[4:] for r in output(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi"]).splitlines() if r.startswith("yes:")), "Disconnected"),
+        "wifi": wifi,
+        "wifiName": wifi_name,
         "bluetooth": "Powered: yes" in output(["bluetoothctl", "show"]),
+        "vpn": vpn,
+        "vpnAvailable": vpn_available,
         "volume": volume,
-        "muted": "MUTED" in volume_raw,
-        "powerProfile": profile,
+        "muted": muted,
+        "brightness": brightness_state(),
+        "battery": battery,
+        "batteryStatus": battery_status,
+        "powerProfile": power_profile(),
+        "hostName": output(["hostname"], "sn0w"),
+        "ipAddress": (output(["hostname", "-I"]).split() or ["—"])[0],
         "monitors": [{
             "name": m.get("name", ""),
             "width": m.get("width", 0),
@@ -44,46 +144,91 @@ def status():
             "refreshRate": m.get("refreshRate", 0),
             "scale": m.get("scale", 1),
             "transform": m.get("transform", 0),
-            "focused": m.get("focused", False)
-        } for m in monitors]
+            "focused": m.get("focused", False),
+            "x": m.get("x", 0),
+            "y": m.get("y", 0),
+        } for m in monitors],
     }))
 
+
+def set_display_scale(value):
+    scale = float(value)
+    if scale < 0.5 or scale > 4.0:
+        raise SystemExit("scale must be between 0.5 and 4.0")
+
+    monitors = hypr_monitors()
+    focused = next((m for m in monitors if m.get("focused")), monitors[0] if monitors else None)
+    if not focused:
+        raise SystemExit("no active monitor")
+
+    name = str(focused.get("name", "")).replace('"', '')
+    width = int(focused.get("width", 0) or 0)
+    height = int(focused.get("height", 0) or 0)
+    refresh = float(focused.get("refreshRate", 60) or 60)
+    x = int(focused.get("x", 0) or 0)
+    y = int(focused.get("y", 0) or 0)
+    mode = f"{width}x{height}@{refresh:.3f}" if width and height else "preferred"
+    position = f"{x}x{y}"
+    lua = (
+        'hl.monitor({ output = ' + json.dumps(name) +
+        ', mode = ' + json.dumps(mode) +
+        ', position = ' + json.dumps(position) +
+        f', scale = {scale:.2f} }})'
+    )
+    return run(["hyprctl", "eval", lua])
+
+
+def toggle_vpn():
+    active, available = vpn_state()
+    if active != "Off":
+        return run(["nmcli", "connection", "down", active])
+    if available:
+        return run(["nmcli", "connection", "up", available])
+    print("sn0w-system: no VPN/WireGuard connection configured", file=sys.stderr)
+    return 3
+
+
 def main():
-    p = argparse.ArgumentParser(prog="sn0w-system")
-    sub = p.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(prog="sn0w-system")
+    sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("status")
-    for name in ("wifi", "bluetooth", "power-profile", "volume", "brightness", "display-scale"):
-        sp = sub.add_parser(name)
-        sp.add_argument("value")
     sub.add_parser("mute-toggle")
-    args = p.parse_args()
+    sub.add_parser("vpn-toggle")
+
+    for name in ("wifi", "bluetooth", "power-profile", "volume", "brightness", "display-scale"):
+        command = sub.add_parser(name)
+        command.add_argument("value")
+
+    args = parser.parse_args()
+
     if args.command == "status":
         status()
         return
     if args.command == "wifi":
-        sys.exit(run(["nmcli", "radio", "wifi", args.value]))
+        raise SystemExit(run(["nmcli", "radio", "wifi", args.value]))
     if args.command == "bluetooth":
-        sys.exit(run(["bluetoothctl", "power", args.value]))
+        raise SystemExit(run(["bluetoothctl", "power", args.value]))
+    if args.command == "vpn-toggle":
+        raise SystemExit(toggle_vpn())
     if args.command == "power-profile":
-        sys.exit(run(["busctl", "set-property", "org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles", "ActiveProfile", "s", args.value]))
+        raise SystemExit(run([
+            "busctl", "set-property",
+            "org.freedesktop.UPower.PowerProfiles",
+            "/org/freedesktop/UPower/PowerProfiles",
+            "org.freedesktop.UPower.PowerProfiles",
+            "ActiveProfile", "s", args.value,
+        ]))
     if args.command == "volume":
-        sys.exit(run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{max(0,min(100,int(args.value)))}%"] ))
+        value = max(0, min(100, int(float(args.value))))
+        raise SystemExit(run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{value}%"]))
     if args.command == "mute-toggle":
-        sys.exit(run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]))
+        raise SystemExit(run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]))
     if args.command == "brightness":
-        sys.exit(run(["brightnessctl", "set", f"{max(1,min(100,int(args.value)))}%"] ))
+        value = max(1, min(100, int(float(args.value))))
+        raise SystemExit(run(["brightnessctl", "set", f"{value}%"]))
     if args.command == "display-scale":
-        scale = float(args.value)
-        if scale < 0.5 or scale > 4.0:
-            raise SystemExit("scale must be between 0.5 and 4.0")
-        raw = output(["hyprctl", "monitors", "-j"], "[]")
-        monitors = json.loads(raw)
-        focused = next((m for m in monitors if m.get("focused")), monitors[0] if monitors else None)
-        if not focused:
-            raise SystemExit("no active monitor")
-        name = focused["name"].replace('"', '')
-        lua = f'hl.monitor({{ output = "{name}", mode = "preferred", position = "auto", scale = {scale} }})'
-        sys.exit(run(["hyprctl", "eval", lua]))
+        raise SystemExit(set_display_scale(args.value))
+
 
 if __name__ == "__main__":
     main()
