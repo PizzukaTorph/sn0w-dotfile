@@ -5,8 +5,9 @@ runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 lock="$runtime/sn0w-hyprland.lock"
 mkdir -p "$runtime"
 
-# Keep exactly one sn0w compositor per user. The fd is inherited by
-# start-hyprland and then Hyprland, so the lock lives for the whole session.
+# Keep exactly one sn0w compositor per user. The advisory lock is the fast path,
+# but start-hyprland may not preserve inherited file descriptors forever, so we
+# also verify Hyprland's live runtime instances below before launching.
 exec 9>"$lock"
 if ! flock -n 9; then
   echo "sn0w: a Hyprland session is already running for this user." >&2
@@ -14,17 +15,30 @@ if ! flock -n 9; then
   exit 1
 fi
 
-# Hyprland can leave instance directories behind after crashes. Remove only
-# directories whose control socket is not reachable; never touch a live instance.
 hypr_root="$runtime/hypr"
+live_instances=()
+
+# Hyprland can leave instance directories behind after crashes. Remove only
+# directories whose control socket is not reachable, and remember every live
+# compositor. This makes duplicate-session prevention independent of whether
+# start-hyprland preserves our flock fd.
 if [[ -d "$hypr_root" ]]; then
   for dir in "$hypr_root"/*; do
     [[ -d "$dir" ]] || continue
     sig="$(basename "$dir")"
-    if ! HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl version >/dev/null 2>&1; then
+    if HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl version >/dev/null 2>&1; then
+      live_instances+=("$sig")
+    else
       rm -rf -- "$dir"
     fi
   done
+fi
+
+if (( ${#live_instances[@]} > 0 )); then
+  echo "sn0w: refusing to start a second Hyprland session." >&2
+  printf 'sn0w: live instance: %s\n' "${live_instances[@]}" >&2
+  echo "sn0w: switch to the existing VT/session, or terminate it first." >&2
+  exit 1
 fi
 
 launcher="$(command -v start-hyprland || true)"
