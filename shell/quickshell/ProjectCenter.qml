@@ -8,13 +8,13 @@ FloatingWindow {
     required property var projectState
 
     title: "sn0w Project Center"
-    implicitWidth: 920
-    implicitHeight: 600
+    implicitWidth: 960
+    implicitHeight: 620
     color: "transparent"
 
     Rectangle {
         anchors.fill: parent
-        radius: 12
+        radius: 16
         color: "#11151b"
         border.width: 0
 
@@ -39,7 +39,7 @@ FloatingWindow {
                     Text {
                         text: projectState.projects.length + " detected Git projects"
                         color: "#697586"
-                        font.pixelSize: 11
+                        font.pixelSize: 10
                     }
                 }
 
@@ -47,10 +47,25 @@ FloatingWindow {
                     Layout.fillWidth: true
                 }
 
-                Text {
-                    text: projectState.actionStatus
-                    color: "#8f9aaa"
-                    font.pixelSize: 10
+                ColumnLayout {
+                    spacing: 1
+
+                    Text {
+                        Layout.alignment: Qt.AlignRight
+                        text: projectState.actionStatus
+                        color: projectState.lastError.length > 0 ? "#d98c8c" : "#8f9aaa"
+                        font.pixelSize: 10
+                    }
+
+                    Text {
+                        Layout.alignment: Qt.AlignRight
+                        visible: projectState.lastError.length > 0
+                        text: projectState.lastError
+                        color: "#9d6e76"
+                        font.pixelSize: 8
+                        elide: Text.ElideRight
+                        Layout.preferredWidth: 320
+                    }
                 }
             }
 
@@ -80,8 +95,11 @@ FloatingWindow {
                                 id: projectCard
                                 required property var modelData
                                 property bool sessionRunning: modelData.session && modelData.session.running === true
+                                property bool sessionLaunching: modelData.session && modelData.session.launching === true
+                                property string sessionPhase: modelData.session && modelData.session.phase ? modelData.session.phase : "stopped"
                                 property int windowCount: modelData.session && modelData.session.windowCount ? modelData.session.windowCount : 0
                                 property var services: modelData.services || []
+                                property var doctor: projectState.doctorResults[modelData.path] || null
                                 property int runningServices: {
                                     let count = 0
                                     for (let i = 0; i < services.length; ++i) {
@@ -90,14 +108,22 @@ FloatingWindow {
                                     }
                                     return count
                                 }
+                                property int readyServices: {
+                                    let count = 0
+                                    for (let i = 0; i < services.length; ++i) {
+                                        if (services[i].ready === true)
+                                            count++
+                                    }
+                                    return count
+                                }
                                 property int totalServices: services.length
 
                                 width: projectColumn.width
-                                height: 92 + (totalServices > 0 ? 10 + totalServices * 38 : 0)
-                                radius: 11
+                                height: 98 + (totalServices > 0 ? 10 + totalServices * 38 : 0)
+                                radius: 12
                                 color: "#14191f"
                                 border.width: 1
-                                border.color: "#242c36"
+                                border.color: sessionRunning ? "#2b3834" : "#242c36"
 
                                 ColumnLayout {
                                     anchors.fill: parent
@@ -106,20 +132,21 @@ FloatingWindow {
 
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 60
+                                        Layout.preferredHeight: 64
                                         spacing: 10
 
                                         Rectangle {
-                                            Layout.preferredWidth: 38
-                                            Layout.preferredHeight: 38
-                                            radius: 10
+                                            Layout.preferredWidth: 40
+                                            Layout.preferredHeight: 40
+                                            radius: 11
                                             color: projectCard.sessionRunning ? "#26352e" : "#252d38"
 
                                             Text {
                                                 anchors.centerIn: parent
-                                                text: projectCard.sessionRunning ? "●" : "◆"
-                                                color: "#dce3ec"
+                                                text: projectCard.sessionLaunching ? "…" : (projectCard.sessionRunning ? "●" : "◆")
+                                                color: projectCard.sessionLaunching ? "#d9a56f" : "#dce3ec"
                                                 font.pixelSize: 14
+                                                font.bold: true
                                             }
                                         }
 
@@ -140,18 +167,36 @@ FloatingWindow {
                                                     color: "#8f9aaa"
                                                     font.pixelSize: 10
                                                 }
+
+                                                Rectangle {
+                                                    visible: projectCard.doctor !== null
+                                                    Layout.preferredWidth: doctorText.implicitWidth + 12
+                                                    Layout.preferredHeight: 20
+                                                    radius: 6
+                                                    color: projectCard.doctor && projectCard.doctor.ok ? "#1d2b24" : "#302127"
+
+                                                    Text {
+                                                        id: doctorText
+                                                        anchors.centerIn: parent
+                                                        text: projectCard.doctor && projectCard.doctor.ok ? "ready" : "check failed"
+                                                        color: projectCard.doctor && projectCard.doctor.ok ? "#8fb69d" : "#d98c8c"
+                                                        font.pixelSize: 8
+                                                    }
+                                                }
                                             }
 
                                             Text {
                                                 Layout.fillWidth: true
                                                 text: projectCard.modelData.path
                                                 color: "#697586"
-                                                font.pixelSize: 10
+                                                font.pixelSize: 9
                                                 elide: Text.ElideMiddle
                                             }
 
                                             Text {
                                                 text: {
+                                                    if (projectCard.sessionLaunching)
+                                                        return "Session launching…"
                                                     if (!projectCard.sessionRunning)
                                                         return "Session stopped"
 
@@ -159,11 +204,33 @@ FloatingWindow {
                                                     if (projectCard.windowCount > 0)
                                                         parts.push(projectCard.windowCount + " windows")
                                                     if (projectCard.totalServices > 0)
-                                                        parts.push(projectCard.runningServices + "/" + projectCard.totalServices + " services")
+                                                        parts.push(projectCard.readyServices + "/" + projectCard.totalServices + " ready")
                                                     return parts.join(" · ")
                                                 }
-                                                color: projectCard.sessionRunning ? "#8fb69d" : "#596474"
+                                                color: projectCard.sessionLaunching ? "#d9a56f" : (projectCard.sessionRunning ? "#8fb69d" : "#596474")
                                                 font.pixelSize: 9
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.preferredWidth: 54
+                                            Layout.preferredHeight: 30
+                                            radius: 8
+                                            color: doctorMouse.containsMouse ? "#29313c" : "#1b222c"
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "Check"
+                                                color: "#cbd3dd"
+                                                font.pixelSize: 9
+                                            }
+
+                                            MouseArea {
+                                                id: doctorMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: projectState.doctorProject(projectCard.modelData.path)
                                             }
                                         }
 
@@ -223,7 +290,7 @@ FloatingWindow {
 
                                             delegate: Rectangle {
                                                 required property string modelData
-                                                Layout.preferredWidth: 62
+                                                Layout.preferredWidth: 58
                                                 Layout.preferredHeight: 30
                                                 radius: 8
                                                 color: actionMouse.containsMouse ? "#29313c" : "#1b222c"
@@ -232,7 +299,7 @@ FloatingWindow {
                                                     anchors.centerIn: parent
                                                     text: modelData
                                                     color: "#dce3ec"
-                                                    font.pixelSize: 10
+                                                    font.pixelSize: 9
                                                 }
 
                                                 MouseArea {
@@ -265,7 +332,7 @@ FloatingWindow {
                                                 id: serviceRow
                                                 required property var modelData
                                                 property bool running: (modelData.state || "").toLowerCase() === "running"
-                                                property bool healthy: (modelData.health || "").toLowerCase() === "healthy"
+                                                property bool healthy: modelData.ready === true
                                                 property bool hasPorts: (modelData.ports || []).length > 0
 
                                                 Layout.fillWidth: true
@@ -273,7 +340,7 @@ FloatingWindow {
                                                 radius: 8
                                                 color: "#0e1318"
                                                 border.width: 1
-                                                border.color: "#202832"
+                                                border.color: serviceRow.healthy ? "#203029" : "#29252a"
 
                                                 RowLayout {
                                                     anchors.fill: parent
@@ -283,7 +350,7 @@ FloatingWindow {
 
                                                     Text {
                                                         text: serviceRow.running ? "●" : "○"
-                                                        color: serviceRow.running ? "#8fb69d" : "#697586"
+                                                        color: serviceRow.healthy ? "#8fb69d" : (serviceRow.running ? "#d9a56f" : "#697586")
                                                         font.pixelSize: 9
                                                     }
 
@@ -298,7 +365,7 @@ FloatingWindow {
                                                     Text {
                                                         Layout.preferredWidth: 95
                                                         text: serviceRow.modelData.health || serviceRow.modelData.state || "unknown"
-                                                        color: serviceRow.healthy ? "#8fb69d" : "#8f9aaa"
+                                                        color: serviceRow.healthy ? "#8fb69d" : "#b18a91"
                                                         font.pixelSize: 9
                                                     }
 
@@ -314,7 +381,7 @@ FloatingWindow {
 
                                                         delegate: Rectangle {
                                                             required property string modelData
-                                                            Layout.preferredWidth: 54
+                                                            Layout.preferredWidth: 52
                                                             Layout.preferredHeight: 24
                                                             radius: 7
                                                             visible: modelData !== "Open" || serviceRow.hasPorts
@@ -324,7 +391,7 @@ FloatingWindow {
                                                                 anchors.centerIn: parent
                                                                 text: modelData
                                                                 color: "#cbd3dd"
-                                                                font.pixelSize: 9
+                                                                font.pixelSize: 8
                                                             }
 
                                                             MouseArea {
@@ -361,7 +428,7 @@ FloatingWindow {
                 Layout.alignment: Qt.AlignHCenter
                 text: "No Git projects detected in configured project folders"
                 color: "#596474"
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
         }
     }
