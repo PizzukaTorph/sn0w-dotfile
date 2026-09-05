@@ -128,11 +128,13 @@ hl.on("hyprland.start", function()
 end)
 
 -- Core sn0w contracts.
--- Launcher must remain available even when a client requests shortcut
--- inhibition, and transparent prevents another later bind from shadowing it.
+-- Launcher is intentionally open-only from the global shortcut. Visibility can
+-- desynchronise briefly while a launched desktop entry takes focus; using
+-- `open` makes SUPER+SPACE idempotent instead of letting stale state turn the
+-- next press into an accidental close.
 hl.bind(
     "SUPER + SPACE",
-    hl.dsp.exec_cmd("qs ipc call launcher toggle"),
+    hl.dsp.exec_cmd("qs ipc call launcher open"),
     {
         dont_inhibit = true,
         transparent = true,
