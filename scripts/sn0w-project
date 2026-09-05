@@ -3,6 +3,7 @@ import argparse
 import json
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -15,6 +16,7 @@ except ImportError:
     raise SystemExit(2)
 
 STATE_DIR = Path.home() / ".local/state/sn0w/projects"
+LAUNCH_GRACE_SECONDS = 15
 
 
 def run(cmd, cwd=None, check=False, quiet=False):
@@ -70,15 +72,21 @@ def read_state(project):
         return None
 
 
-def write_state(project, running=True):
+def write_state(project, running=True, phase=None):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
+    previous = read_state(project) or {}
+    now = int(time.time())
     payload = {
         "name": project["name"],
         "path": project["path"],
         "workspace": project["workspace"],
         "running": running,
-        "updatedAt": int(time.time()),
+        "phase": phase or ("running" if running else "stopped"),
+        "startedAt": previous.get("startedAt", now) if running else previous.get("startedAt", now),
+        "updatedAt": now,
     }
+    if running and not previous.get("running"):
+        payload["startedAt"] = now
     state_path(project).write_text(json.dumps(payload, indent=2) + "\n")
 
 
@@ -109,15 +117,21 @@ def terminal_args(value):
     return parts or ["foot"]
 
 
-def hypr_clients():
-    raw = output(["hyprctl", "-j", "clients"])
+def parse_hypr_json(raw):
     if not raw:
         return []
+    index = raw.find("[")
+    if index >= 0:
+        raw = raw[index:]
     try:
         value = json.loads(raw)
         return value if isinstance(value, list) else []
     except json.JSONDecodeError:
         return []
+
+
+def hypr_clients():
+    return parse_hypr_json(output(["hyprctl", "-j", "clients"]))
 
 
 def workspace_clients(project):
@@ -168,10 +182,13 @@ def compose_services(project):
                         "target": int(target) if target else None,
                         "protocol": str(pub.get("Protocol") or "tcp"),
                     })
+        state = str(row.get("State") or "")
+        health = str(row.get("Health") or "")
         services.append({
             "name": row.get("Service") or row.get("Name", ""),
-            "state": row.get("State", ""),
-            "health": row.get("Health", ""),
+            "state": state,
+            "health": health,
+            "ready": state.lower() == "running" and health.lower() not in ("starting", "unhealthy"),
             "ports": ports,
         })
     return services
@@ -185,25 +202,49 @@ def project_status(project):
     clients = workspace_clients(project)
     state = read_state(project)
     compose_running = any(str(s.get("state", "")).lower() == "running" for s in services)
-    running = bool(clients) or compose_running or bool(state and state.get("running"))
+    updated_at = int((state or {}).get("updatedAt", 0) or 0)
+    launching = bool(state and state.get("running") and time.time() - updated_at < LAUNCH_GRACE_SECONDS)
+    running = bool(clients) or compose_running or launching
     session = dict(state or {})
     session["running"] = running
+    session["launching"] = launching and not (clients or compose_running)
+    session["phase"] = "launching" if session["launching"] else ("running" if running else "stopped")
     session["windowCount"] = len(clients)
+    session["serviceCount"] = len(services)
+    session["readyServiceCount"] = sum(1 for service in services if service.get("ready"))
     return {**project, "branch": branch, "dirty": dirty, "services": services, "session": session}
+
+
+def wait_for_services(project, timeout=12):
+    if not compose_args(project):
+        return
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        services = compose_services(project)
+        if services and all(service.get("ready") for service in services):
+            return
+        time.sleep(0.5)
 
 
 def launch_project(project):
     root = project["path"]
+    write_state(project, True, "launching")
     focus_workspace(project)
     compose = compose_args(project)
     if compose:
-        run(compose + ["up", "-d"], cwd=root)
+        result = run(compose + ["up", "-d"], cwd=root)
+        if result.returncode != 0:
+            write_state(project, False, "failed")
+            raise SystemExit(result.returncode)
+        wait_for_services(project)
+
     editor = project.get("editor", "code")
     if editor:
         if isinstance(editor, list):
             spawn([str(x) for x in editor], cwd=root)
         else:
             spawn([str(editor), root], cwd=root)
+
     for terminal in project.get("terminals", []):
         if isinstance(terminal, str):
             spawn(["foot", "-D", str(Path(root) / terminal)])
@@ -214,23 +255,27 @@ def launch_project(project):
                 spawn(["foot", "-D", cwd, "sh", "-lc", str(command)])
             else:
                 spawn(["foot", "-D", cwd])
+
     for url in project.get("links", project.get("urls", [])):
         target = url.get("url") if isinstance(url, dict) else url
         if target:
             spawn(["xdg-open", str(target)])
-    write_state(project, True)
+
+    write_state(project, True, "running")
 
 
 def start(project, resume=False):
     status = project_status(project)
     if status["session"].get("running"):
         focus_workspace(project)
+        write_state(project, True, "running")
     else:
         launch_project(project)
     print(json.dumps(project_status(project)))
 
 
 def stop(project, keep_services=False):
+    write_state(project, True, "stopping")
     compose = compose_args(project)
     if compose and not keep_services:
         run(compose + ["stop"], cwd=project["path"])
@@ -238,8 +283,25 @@ def stop(project, keep_services=False):
         address = str(client.get("address", ""))
         if address:
             run(["hyprctl", "dispatch", "closewindow", f"address:{address}"], quiet=True)
-    write_state(project, False)
+    write_state(project, False, "stopped")
     print(json.dumps(project_status(project)))
+
+
+def doctor(project):
+    compose = compose_args(project)
+    editor = project.get("editor", "code")
+    editor_bin = str(editor[0]) if isinstance(editor, list) and editor else str(editor or "")
+    checks = {
+        "pathExists": Path(project["path"]).is_dir(),
+        "git": shutil.which("git") is not None,
+        "hyprctl": shutil.which("hyprctl") is not None,
+        "editor": not editor_bin or shutil.which(editor_bin) is not None,
+        "docker": compose is None or shutil.which("docker") is not None,
+        "composeConfigured": compose is not None,
+        "configured": project.get("configured", False),
+    }
+    checks["ok"] = all(checks[key] for key in ("pathExists", "git", "hyprctl", "editor", "docker"))
+    print(json.dumps({"project": project, "checks": checks}))
 
 
 def service_logs(project, service, terminal):
@@ -276,31 +338,35 @@ def service_open(project, service):
 def main():
     parser = argparse.ArgumentParser(prog="sn0w-project")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("status", "start", "resume"):
-        p = sub.add_parser(name)
-        p.add_argument("path")
-    p = sub.add_parser("stop")
-    p.add_argument("path")
-    p.add_argument("--keep-services", action="store_true")
-    p = sub.add_parser("init")
-    p.add_argument("path", nargs="?", default=".")
+    for name in ("status", "start", "resume", "doctor"):
+        command = sub.add_parser(name)
+        command.add_argument("path")
+    command = sub.add_parser("stop")
+    command.add_argument("path")
+    command.add_argument("--keep-services", action="store_true")
+    command = sub.add_parser("init")
+    command.add_argument("path", nargs="?", default=".")
     for name in ("service-logs", "service-exec"):
-        p = sub.add_parser(name)
-        p.add_argument("path")
-        p.add_argument("service")
-        p.add_argument("--terminal", default="foot")
+        command = sub.add_parser(name)
+        command.add_argument("path")
+        command.add_argument("service")
+        command.add_argument("--terminal", default="foot")
     for name in ("service-restart", "service-open"):
-        p = sub.add_parser(name)
-        p.add_argument("path")
-        p.add_argument("service")
+        command = sub.add_parser(name)
+        command.add_argument("path")
+        command.add_argument("service")
+
     args = parser.parse_args()
     project = load_project(args.path)
+
     if args.command == "status":
         print(json.dumps(project_status(project)))
     elif args.command in ("start", "resume"):
         start(project, args.command == "resume")
     elif args.command == "stop":
         stop(project, args.keep_services)
+    elif args.command == "doctor":
+        doctor(project)
     elif args.command == "service-logs":
         service_logs(project, args.service, args.terminal)
     elif args.command == "service-exec":
