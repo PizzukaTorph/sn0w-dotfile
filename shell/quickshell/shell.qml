@@ -24,6 +24,13 @@ ShellRoot {
         settingsVisible = false
     }
 
+    function resetSwitcher(): void {
+        Qt.callLater(function() {
+            if (switcherLoader.item)
+                switcherLoader.item.resetAndShow()
+        })
+    }
+
     SystemState {
         id: systemState
     }
@@ -71,10 +78,9 @@ ShellRoot {
         }
     }
 
-    // Quickshell 0.2.x can leave a hidden FloatingWindow alive but unable to
-    // remap after visible flips false -> true. Treat the launcher as an
-    // ephemeral surface instead: closing destroys the window and opening
-    // creates a fresh xdg-toplevel every time.
+    // Quickshell 0.2.x can leave hidden FloatingWindows alive but unable to
+    // remap reliably. Transient shell surfaces that are frequently reopened are
+    // therefore ephemeral: false destroys the xdg-toplevel, true recreates it.
     Loader {
         id: launcherLoader
         active: root.launcherVisible
@@ -103,11 +109,22 @@ ShellRoot {
         }
     }
 
-    AppSwitcher {
-        id: appSwitcher
-        visible: root.switcherVisible
-        hyprState: hyprState
-        onVisibleChanged: root.switcherVisible = visible
+    Loader {
+        id: switcherLoader
+        active: root.switcherVisible
+        asynchronous: false
+
+        sourceComponent: Component {
+            AppSwitcher {
+                hyprState: hyprState
+                visible: true
+                onCloseRequested: root.switcherVisible = false
+                onVisibleChanged: {
+                    if (!visible && root.switcherVisible)
+                        root.switcherVisible = false
+                }
+            }
+        }
     }
 
     Overview {
@@ -115,9 +132,21 @@ ShellRoot {
         hyprState: hyprState
     }
 
-    ProjectCenter {
-        visible: root.projectCenterVisible
-        projectState: projectState
+    Loader {
+        id: projectCenterLoader
+        active: root.projectCenterVisible
+        asynchronous: false
+
+        sourceComponent: Component {
+            ProjectCenter {
+                projectState: projectState
+                visible: true
+                onVisibleChanged: {
+                    if (!visible && root.projectCenterVisible)
+                        root.projectCenterVisible = false
+                }
+            }
+        }
     }
 
     SettingsWindow {
@@ -160,29 +189,33 @@ ShellRoot {
             root.closeTransientSurfaces()
             root.switcherVisible = next
             hyprState.refresh()
+            if (next)
+                root.resetSwitcher()
         }
 
         function open(): void {
             root.closeTransientSurfaces()
             root.switcherVisible = true
             hyprState.refresh()
-            appSwitcher.resetAndShow()
+            root.resetSwitcher()
         }
 
         function cycle(): void {
             if (!root.switcherVisible) {
+                // Opening Cmd+Tab is also a shell-modal transition: Project
+                // Center, Launcher, Settings, Clipboard, etc. must disappear.
                 root.closeTransientSurfaces()
                 root.switcherVisible = true
                 hyprState.refresh()
-                appSwitcher.resetAndShow()
-            } else {
-                appSwitcher.cycle()
+                root.resetSwitcher()
+            } else if (switcherLoader.item) {
+                switcherLoader.item.cycle()
             }
         }
 
         function commit(): void {
-            if (root.switcherVisible)
-                appSwitcher.commitSelection()
+            if (root.switcherVisible && switcherLoader.item)
+                switcherLoader.item.commitSelection()
         }
 
         function close(): void {
