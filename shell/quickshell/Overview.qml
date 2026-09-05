@@ -1,38 +1,138 @@
 import Quickshell
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 FloatingWindow {
     id: overview
 
     required property var hyprState
+    required property var projectState
+    signal closeRequested()
+
+    property string query: ""
 
     title: "sn0w Overview"
-    implicitWidth: 980
-    implicitHeight: 620
+    implicitWidth: 1040
+    implicitHeight: 640
     color: "transparent"
+
+    function projectForWorkspace(name: string) {
+        if (!projectState)
+            return null
+        const projects = projectState.projects || []
+        for (let i = 0; i < projects.length; ++i) {
+            if ((projects[i].workspace || "") === name)
+                return projects[i]
+        }
+        return null
+    }
+
+    function windowMatches(client): bool {
+        const needle = query.trim().toLowerCase()
+        if (needle.length === 0)
+            return true
+        const workspace = client.workspace || {}
+        const project = projectForWorkspace(workspace.name || "")
+        const haystack = [
+            client.class || "",
+            client.initialClass || "",
+            client.title || "",
+            workspace.name || "",
+            project ? project.name : "",
+            project ? project.branch : ""
+        ].join(" ").toLowerCase()
+        return haystack.indexOf(needle) >= 0
+    }
+
+    function workspaceWindows(workspace): var {
+        const clients = hyprState.clients || []
+        const result = []
+        for (let i = 0; i < clients.length; ++i) {
+            const client = clients[i]
+            if (client.workspace && client.workspace.id === workspace.id && windowMatches(client))
+                result.push(client)
+        }
+        return result
+    }
+
+    function workspaceMatches(workspace): bool {
+        if (workspaceWindows(workspace).length > 0)
+            return true
+        const needle = query.trim().toLowerCase()
+        if (needle.length === 0)
+            return true
+        const project = projectForWorkspace(workspace.name || "")
+        const haystack = ((workspace.name || "") + " " + (project ? project.name : "") + " " + (project ? project.branch : "")).toLowerCase()
+        return haystack.indexOf(needle) >= 0
+    }
 
     Rectangle {
         anchors.fill: parent
-        radius: 22
-        color: "#f20b0d10"
-        border.width: 1
-        border.color: "#202630"
+        radius: 18
+        color: "#11151b"
+        border.width: 0
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 24
-            spacing: 18
+            anchors.margins: 20
+            spacing: 14
 
             RowLayout {
                 Layout.fillWidth: true
+
                 ColumnLayout {
-                    spacing: 2
-                    Text { text: "Overview"; color: "#f4f7fb"; font.pixelSize: 24; font.bold: true }
-                    Text { text: hyprState.workspaces.length + " workspaces · " + hyprState.clients.length + " app windows"; color: "#7d8998"; font.pixelSize: 12 }
+                    spacing: 1
+
+                    Text {
+                        text: "Overview"
+                        color: "#f4f7fb"
+                        font.pixelSize: 22
+                        font.bold: true
+                    }
+
+                    Text {
+                        text: hyprState.workspaces.length + " workspaces · " + hyprState.clients.length + " windows"
+                        color: "#697586"
+                        font.pixelSize: 10
+                    }
                 }
-                Item { Layout.fillWidth: true }
-                Text { text: "⌘↑"; color: "#697586"; font.pixelSize: 12 }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 310
+                    Layout.preferredHeight: 38
+                    radius: 10
+                    color: "#0b0f14"
+                    border.width: 1
+                    border.color: searchField.activeFocus ? "#46576a" : "#242c36"
+
+                    TextField {
+                        id: searchField
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        placeholderText: "Find window, workspace or project…"
+                        color: "#f4f7fb"
+                        font.pixelSize: 11
+                        focus: true
+                        background: Item {}
+                        onTextChanged: overview.query = text
+
+                        Keys.onEscapePressed: {
+                            overview.closeRequested()
+                        }
+                    }
+                }
+
+                Text {
+                    text: "⌘↑"
+                    color: "#697586"
+                    font.pixelSize: 11
+                }
             }
 
             Flickable {
@@ -46,7 +146,7 @@ FloatingWindow {
                 Column {
                     id: workspaceColumn
                     width: parent.width
-                    spacing: 12
+                    spacing: 10
 
                     Repeater {
                         model: hyprState.workspaces
@@ -54,36 +154,81 @@ FloatingWindow {
                         delegate: Rectangle {
                             id: workspaceCard
                             required property var modelData
-                            property var windows: hyprState.clients.filter(c => c.workspace && c.workspace.id === modelData.id)
+                            property var windows: overview.workspaceWindows(modelData)
+                            property var project: overview.projectForWorkspace(modelData.name || "")
+                            property bool matches: overview.workspaceMatches(modelData)
+
+                            visible: matches
                             width: workspaceColumn.width
-                            height: Math.max(138, 86 + windowRow.implicitHeight)
-                            radius: 16
-                            color: modelData.id === hyprState.activeWorkspace ? "#1b222c" : "#14191f"
-                            border.width: modelData.id === hyprState.activeWorkspace ? 2 : 1
-                            border.color: modelData.id === hyprState.activeWorkspace ? "#657283" : "#29313c"
+                            height: matches ? Math.max(122, 70 + windowFlow.implicitHeight) : 0
+                            radius: 14
+                            color: modelData.id === hyprState.activeWorkspace ? "#1a2028" : "#14191f"
+                            border.width: 1
+                            border.color: modelData.id === hyprState.activeWorkspace ? "#46576a" : "#242c36"
 
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 10
+                                anchors.margins: 14
+                                spacing: 9
 
                                 RowLayout {
                                     Layout.fillWidth: true
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 7
+                                        Layout.preferredHeight: 7
+                                        radius: 4
+                                        color: workspaceCard.modelData.id === hyprState.activeWorkspace ? "#aeb9c7" : "#596474"
+                                    }
+
                                     Text {
-                                        text: modelData.name && modelData.name.length > 0 ? modelData.name : "Workspace " + modelData.id
+                                        text: workspaceCard.modelData.name && workspaceCard.modelData.name.length > 0
+                                              ? workspaceCard.modelData.name
+                                              : "Workspace " + workspaceCard.modelData.id
                                         color: "#f4f7fb"
-                                        font.pixelSize: 15
+                                        font.pixelSize: 13
                                         font.bold: true
                                     }
-                                    Rectangle { width: 7; height: 7; radius: 4; color: modelData.id === hyprState.activeWorkspace ? "#dce3ec" : "#596474" }
-                                    Text { text: workspaceCard.windows.length + " windows"; color: "#697586"; font.pixelSize: 10 }
-                                    Item { Layout.fillWidth: true }
+
                                     Rectangle {
-                                        Layout.preferredWidth: 72
-                                        Layout.preferredHeight: 28
+                                        visible: workspaceCard.project !== null
+                                        Layout.preferredWidth: projectText.implicitWidth + 16
+                                        Layout.preferredHeight: 22
+                                        radius: 7
+                                        color: "#202932"
+
+                                        Text {
+                                            id: projectText
+                                            anchors.centerIn: parent
+                                            text: workspaceCard.project ? workspaceCard.project.name + (workspaceCard.project.branch ? " · " + workspaceCard.project.branch : "") : ""
+                                            color: "#9fb0c2"
+                                            font.pixelSize: 9
+                                        }
+                                    }
+
+                                    Text {
+                                        text: workspaceCard.windows.length + " windows"
+                                        color: "#697586"
+                                        font.pixelSize: 9
+                                    }
+
+                                    Item {
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Rectangle {
+                                        Layout.preferredWidth: 62
+                                        Layout.preferredHeight: 26
                                         radius: 8
                                         color: workspaceMouse.containsMouse ? "#29313c" : "#1b222c"
-                                        Text { anchors.centerIn: parent; text: modelData.id === hyprState.activeWorkspace ? "Active" : "Open"; color: "#dce3ec"; font.pixelSize: 10 }
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: workspaceCard.modelData.id === hyprState.activeWorkspace ? "Active" : "Open"
+                                            color: "#dce3ec"
+                                            font.pixelSize: 9
+                                        }
+
                                         MouseArea {
                                             id: workspaceMouse
                                             anchors.fill: parent
@@ -91,16 +236,16 @@ FloatingWindow {
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 hyprState.focusWorkspace(workspaceCard.modelData.id)
-                                                overview.visible = false
+                                                overview.closeRequested()
                                             }
                                         }
                                     }
                                 }
 
                                 Flow {
-                                    id: windowRow
+                                    id: windowFlow
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: 7
 
                                     Repeater {
                                         model: workspaceCard.windows
@@ -108,8 +253,8 @@ FloatingWindow {
                                         delegate: Rectangle {
                                             id: windowCard
                                             required property var modelData
-                                            width: Math.min(260, Math.max(180, workspaceCard.width / Math.max(1, Math.min(3, workspaceCard.windows.length)) - 20))
-                                            height: 68
+                                            width: Math.min(275, Math.max(180, workspaceCard.width / Math.max(1, Math.min(3, workspaceCard.windows.length)) - 18))
+                                            height: 62
                                             radius: 10
                                             color: windowMouse.containsMouse ? "#242d38" : "#0e1217"
                                             border.width: 1
@@ -117,26 +262,44 @@ FloatingWindow {
 
                                             RowLayout {
                                                 anchors.fill: parent
-                                                anchors.margins: 10
+                                                anchors.margins: 9
                                                 spacing: 9
+
                                                 Rectangle {
-                                                    Layout.preferredWidth: 34
-                                                    Layout.preferredHeight: 34
+                                                    Layout.preferredWidth: 32
+                                                    Layout.preferredHeight: 32
                                                     radius: 9
                                                     color: "#252d38"
+
                                                     Text {
                                                         anchors.centerIn: parent
-                                                        text: (modelData.class || "?").substring(0, 1).toUpperCase()
+                                                        text: (windowCard.modelData.class || "?").substring(0, 1).toUpperCase()
                                                         color: "#f4f7fb"
-                                                        font.pixelSize: 14
+                                                        font.pixelSize: 13
                                                         font.bold: true
                                                     }
                                                 }
+
                                                 ColumnLayout {
                                                     Layout.fillWidth: true
-                                                    spacing: 2
-                                                    Text { Layout.fillWidth: true; text: modelData.class || "Window"; color: "#dce3ec"; font.pixelSize: 11; font.bold: true; elide: Text.ElideRight }
-                                                    Text { Layout.fillWidth: true; text: modelData.title || ""; color: "#697586"; font.pixelSize: 9; elide: Text.ElideRight }
+                                                    spacing: 1
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: windowCard.modelData.class || "Window"
+                                                        color: "#dce3ec"
+                                                        font.pixelSize: 10
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: windowCard.modelData.title || ""
+                                                        color: "#697586"
+                                                        font.pixelSize: 9
+                                                        elide: Text.ElideRight
+                                                    }
                                                 }
                                             }
 
@@ -147,7 +310,7 @@ FloatingWindow {
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
                                                     hyprState.focusClient(windowCard.modelData.address || "")
-                                                    overview.visible = false
+                                                    overview.closeRequested()
                                                 }
                                             }
                                         }
@@ -156,9 +319,9 @@ FloatingWindow {
 
                                 Text {
                                     visible: workspaceCard.windows.length === 0
-                                    text: "Empty workspace"
+                                    text: overview.query.length > 0 ? "No matching windows" : "Empty workspace"
                                     color: "#46515f"
-                                    font.pixelSize: 10
+                                    font.pixelSize: 9
                                 }
                             }
                         }
@@ -167,11 +330,11 @@ FloatingWindow {
             }
 
             Text {
-                visible: hyprState.workspaces.length === 0
+                visible: overview.query.length > 0 && workspaceColumn.implicitHeight === 0
                 Layout.alignment: Qt.AlignHCenter
-                text: "No Hyprland workspaces reported"
+                text: "No matching workspace or window"
                 color: "#596474"
-                font.pixelSize: 11
+                font.pixelSize: 10
             }
         }
     }
