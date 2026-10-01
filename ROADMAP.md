@@ -54,6 +54,7 @@ Hyprland must be launched from a real TTY with `start-hyprland`. Launching `Hypr
 - [ ] clipboard history
 - [ ] screenshot/record UI
 - [ ] Quick Look
+- [x] desktop shortcut quick-reference
 
 ## Milestone 3 — Context workspaces
 
