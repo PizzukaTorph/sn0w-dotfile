@@ -117,33 +117,47 @@ def slot_name(slot):
     return f"general-{slot}"
 
 
-def dispatch(*args):
-    result = run(["hyprctl", "dispatch"] + list(args), quiet=True)
+def dispatch_lua(expression):
+    result = run(["hyprctl", "dispatch", expression], quiet=True)
     if result.returncode != 0:
         print("sn0w-workspace: Hyprland dispatch failed", file=sys.stderr)
         raise SystemExit(result.returncode)
 
 
+def lua_string(value):
+    return json.dumps(str(value))
+
+
+def focus_workspace(name):
+    target = lua_string(f"name:{name}")
+    dispatch_lua(f"hl.dsp.focus({{ workspace = {target} }})")
+
+
+def move_window_to_workspace(name):
+    target = lua_string(f"name:{name}")
+    dispatch_lua(f"hl.dsp.window.move({{ workspace = {target}, follow = false }})")
+
+
 def focus_name(name):
     ensure_record(name)
-    dispatch("workspace", f"name:{name}")
+    focus_workspace(name)
 
 
 def ensure_slot(slot):
     name = slot_name(slot)
     ensure_record(name, kind="general", label=f"General {int(slot)}", slot=int(slot))
-    dispatch("workspace", f"name:{name}")
+    focus_workspace(name)
 
 
 def move_window_to_slot(slot):
     name = slot_name(slot)
     ensure_record(name, kind="general", label=f"General {int(slot)}", slot=int(slot))
-    dispatch("movetoworkspacesilent", f"name:{name}")
+    move_window_to_workspace(name)
 
 
 def ensure_project(workspace, name, path):
     ensure_record(workspace, kind="project", label=name, project_path=path)
-    dispatch("workspace", f"name:{workspace}")
+    focus_workspace(workspace)
 
 
 def combined_state():
@@ -199,13 +213,13 @@ def relative_target(direction):
 def focus_relative(direction):
     target = relative_target(direction)
     if target:
-        dispatch("workspace", f"name:{target['name']}")
+        focus_workspace(target["name"])
 
 
 def move_relative(direction):
     target = relative_target(direction)
     if target:
-        dispatch("movetoworkspacesilent", f"name:{target['name']}")
+        move_window_to_workspace(target["name"])
 
 
 def print_json(value):
