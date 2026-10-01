@@ -7,6 +7,7 @@ FloatingWindow {
     id: overview
 
     required property var hyprState
+    required property var workspaceState
     required property var projectState
     signal closeRequested()
 
@@ -50,7 +51,10 @@ FloatingWindow {
         const result = []
         for (let i = 0; i < clients.length; ++i) {
             const client = clients[i]
-            if (client.workspace && client.workspace.id === workspace.id && windowMatches(client))
+            if (client.workspace
+                && ((workspace.hyprId && client.workspace.id === workspace.hyprId)
+                    || String(client.workspace.name || "") === String(workspace.name || ""))
+                && windowMatches(client))
                 result.push(client)
         }
         return result
@@ -92,7 +96,7 @@ FloatingWindow {
                     }
 
                     Text {
-                        text: hyprState.workspaces.length + " workspaces · " + hyprState.clients.length + " windows"
+                        text: workspaceState.workspaces.length + " workspaces · " + hyprState.clients.length + " windows"
                         color: "#697586"
                         font.pixelSize: 10
                     }
@@ -149,7 +153,7 @@ FloatingWindow {
                     spacing: 10
 
                     Repeater {
-                        model: hyprState.workspaces
+                        model: workspaceState.workspaces
 
                         delegate: Rectangle {
                             id: workspaceCard
@@ -162,9 +166,9 @@ FloatingWindow {
                             width: workspaceColumn.width
                             height: matches ? Math.max(122, 70 + windowFlow.implicitHeight) : 0
                             radius: 14
-                            color: modelData.id === hyprState.activeWorkspace ? "#1a2028" : "#14191f"
+                            color: modelData.active === true ? "#1a2028" : "#14191f"
                             border.width: 1
-                            border.color: modelData.id === hyprState.activeWorkspace ? "#46576a" : "#242c36"
+                            border.color: modelData.active === true ? "#46576a" : "#242c36"
 
                             ColumnLayout {
                                 anchors.fill: parent
@@ -178,13 +182,13 @@ FloatingWindow {
                                         Layout.preferredWidth: 7
                                         Layout.preferredHeight: 7
                                         radius: 4
-                                        color: workspaceCard.modelData.id === hyprState.activeWorkspace ? "#aeb9c7" : "#596474"
+                                        color: workspaceCard.modelData.active === true ? "#aeb9c7" : "#596474"
                                     }
 
                                     Text {
-                                        text: workspaceCard.modelData.name && workspaceCard.modelData.name.length > 0
-                                              ? workspaceCard.modelData.name
-                                              : "Workspace " + workspaceCard.modelData.id
+                                        text: workspaceCard.modelData.label && workspaceCard.modelData.label.length > 0
+                                              ? workspaceCard.modelData.label
+                                              : workspaceCard.modelData.name
                                         color: "#f4f7fb"
                                         font.pixelSize: 13
                                         font.bold: true
@@ -224,7 +228,7 @@ FloatingWindow {
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: workspaceCard.modelData.id === hyprState.activeWorkspace ? "Active" : "Open"
+                                            text: workspaceCard.modelData.active === true ? "Active" : "Open"
                                             color: "#dce3ec"
                                             font.pixelSize: 9
                                         }
@@ -235,7 +239,7 @@ FloatingWindow {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                hyprState.focusWorkspace(workspaceCard.modelData.id)
+                                                workspaceState.focusWorkspace(workspaceCard.modelData.name || "")
                                                 overview.closeRequested()
                                             }
                                         }
