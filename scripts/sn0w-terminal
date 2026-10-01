@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Prefer the user's configured terminal, then sn0w's preferred terminal,
+# then the always-provisioned lightweight fallback.
+configured=""
+settings="${HOME}/.config/sn0w/settings.json"
+
+if [[ -f "$settings" ]] && command -v python3 >/dev/null 2>&1; then
+  configured="$(
+    python3 - "$settings" <<'PY' 2>/dev/null || true
+import json
+import sys
+from pathlib import Path
+
+try:
+    data = json.loads(Path(sys.argv[1]).read_text())
+    value = data.get("apps", {}).get("terminal", "")
+    if isinstance(value, str):
+        print(value.strip())
+except Exception:
+    pass
+PY
+  )"
+fi
+
+try_exec() {
+  local command_name="$1"
+  shift || true
+  [[ -n "$command_name" ]] || return 1
+  command -v "$command_name" >/dev/null 2>&1 || return 1
+  exec "$command_name" "$@"
+}
+
+# Avoid recursion if settings already points at this helper.
+if [[ -n "$configured" && "$configured" != "sn0w-terminal" ]]; then
+  read -r -a configured_parts <<< "$configured"
+  if (( ${#configured_parts[@]} > 0 )); then
+    try_exec "${configured_parts[0]}" "${configured_parts[@]:1}" || true
+  fi
+fi
+
+try_exec ghostty || true
+try_exec foot || true
+try_exec xterm || true
+
+echo "sn0w-terminal: no supported terminal emulator found" >&2
+exit 127
