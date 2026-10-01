@@ -62,6 +62,7 @@
     - sn0w-ssh-askpass
     - sn0w-session
     - sn0w-project
+    - sn0w-workspace
     - sn0w-system
     - sn0w-smoke
 
@@ -75,6 +76,7 @@
     - sn0w-ssh-askpass
     - sn0w-session
     - sn0w-project
+    - sn0w-workspace
     - sn0w-system
     - sn0w-smoke
 
