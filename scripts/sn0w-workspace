@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+STATE_PATH = Path.home() / ".local/state/sn0w/workspaces.json"
+
+
+def run(cmd, check=False, quiet=False):
+    kwargs = {"text": True}
+    if quiet:
+        kwargs.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return subprocess.run(cmd, check=check, **kwargs)
+
+
+def output(cmd):
+    try:
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+
+
+def hypr_json(args, fallback):
+    raw = output(["hyprctl", "-j"] + args)
+    if not raw:
+        return fallback
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return fallback
+
+
+def hypr_workspaces():
+    value = hypr_json(["workspaces"], [])
+    return value if isinstance(value, list) else []
+
+
+def active_workspace():
+    value = hypr_json(["activeworkspace"], {})
+    return value if isinstance(value, dict) else {}
+
+
+def default_state():
+    return {"version": 1, "nextOrder": 1, "workspaces": {}}
+
+
+def load_state():
+    if not STATE_PATH.exists():
+        return default_state()
+    try:
+        value = json.loads(STATE_PATH.read_text())
+    except (json.JSONDecodeError, OSError):
+        return default_state()
+    if not isinstance(value, dict):
+        return default_state()
+    value.setdefault("version", 1)
+    value.setdefault("nextOrder", 1)
+    value.setdefault("workspaces", {})
+    if not isinstance(value["workspaces"], dict):
+        value["workspaces"] = {}
+    return value
+
+
+def save_state(state):
+    STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+    tmp.replace(STATE_PATH)
+
+
+def infer_type(name):
+    if name.startswith("project-"):
+        return "project"
+    if name.startswith("activity-"):
+        return "activity"
+    return "general"
+
+
+def ensure_record(name, kind=None, label=None, slot=None, project_path=None):
+    state = load_state()
+    records = state["workspaces"]
+    record = records.get(name)
+
+    if not isinstance(record, dict):
+        record = {
+            "name": name,
+            "type": kind or infer_type(name),
+            "label": label or name,
+            "order": int(state.get("nextOrder", 1)),
+            "createdAt": int(time.time()),
+        }
+        state["nextOrder"] = record["order"] + 1
+    else:
+        record = dict(record)
+
+    record["name"] = name
+    record["type"] = kind or record.get("type") or infer_type(name)
+    record["label"] = label or record.get("label") or name
+    if slot is not None:
+        record["slot"] = int(slot)
+    if project_path:
+        record["projectPath"] = str(Path(project_path).expanduser().resolve())
+    record["updatedAt"] = int(time.time())
+
+    records[name] = record
+    save_state(state)
+    return record
+
+
+def slot_name(slot):
+    slot = int(slot)
+    if slot < 1 or slot > 9:
+        raise ValueError("workspace slot must be between 1 and 9")
+    return f"general-{slot}"
+
+
+def dispatch(*args):
+    result = run(["hyprctl", "dispatch"] + list(args), quiet=True)
+    if result.returncode != 0:
+        print("sn0w-workspace: Hyprland dispatch failed", file=sys.stderr)
+        raise SystemExit(result.returncode)
+
+
+def focus_name(name):
+    ensure_record(name)
+    dispatch("workspace", f"name:{name}")
+
+
+def ensure_slot(slot):
+    name = slot_name(slot)
+    ensure_record(name, kind="general", label=f"General {int(slot)}", slot=int(slot))
+    dispatch("workspace", f"name:{name}")
+
+
+def move_window_to_slot(slot):
+    name = slot_name(slot)
+    ensure_record(name, kind="general", label=f"General {int(slot)}", slot=int(slot))
+    dispatch("movetoworkspacesilent", f"name:{name}")
+
+
+def ensure_project(workspace, name, path):
+    ensure_record(workspace, kind="project", label=name, project_path=path)
+    dispatch("workspace", f"name:{workspace}")
+
+
+def combined_state():
+    registry = load_state()
+    records = registry.get("workspaces", {})
+    active = active_workspace()
+    active_name = str(active.get("name") or "")
+    rows = []
+
+    for ws in hypr_workspaces():
+        name = str(ws.get("name") or ws.get("id") or "")
+        if not name:
+            continue
+
+        record = records.get(name)
+        record = record if isinstance(record, dict) else {}
+        kind = str(record.get("type") or infer_type(name))
+        label = str(record.get("label") or (f"Workspace {name}" if name.isdigit() else name))
+        order = int(record.get("order", 100000 + abs(int(ws.get("id", 0) or 0))))
+
+        rows.append({
+            "name": name,
+            "label": label,
+            "type": kind,
+            "slot": record.get("slot"),
+            "projectPath": record.get("projectPath", ""),
+            "order": order,
+            "hyprId": int(ws.get("id", 0) or 0),
+            "windows": int(ws.get("windows", 0) or 0),
+            "monitor": str(ws.get("monitor") or ""),
+            "active": name == active_name,
+        })
+
+    rows.sort(key=lambda row: (row["order"], row["name"]))
+    active_row = next((row for row in rows if row["active"]), None)
+
+    return {"version": 1, "active": active_row, "workspaces": rows}
+
+
+def relative_target(direction):
+    state = combined_state()
+    rows = state["workspaces"]
+    if len(rows) < 2:
+        return None
+
+    active = state.get("active") or {}
+    active_name = str(active.get("name") or "")
+    index = next((i for i, row in enumerate(rows) if row["name"] == active_name), 0)
+    delta = 1 if direction == "next" else -1
+    return rows[(index + delta) % len(rows)]
+
+
+def focus_relative(direction):
+    target = relative_target(direction)
+    if target:
+        dispatch("workspace", f"name:{target['name']}")
+
+
+def move_relative(direction):
+    target = relative_target(direction)
+    if target:
+        dispatch("movetoworkspacesilent", f"name:{target['name']}")
+
+
+def print_json(value):
+    print(json.dumps(value, separators=(",", ":")))
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="sn0w-workspace")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    command = sub.add_parser("ensure")
+    command.add_argument("slot", type=int)
+
+    command = sub.add_parser("move-window")
+    command.add_argument("slot", type=int)
+
+    command = sub.add_parser("focus-name")
+    command.add_argument("name")
+
+    sub.add_parser("next")
+    sub.add_parser("previous")
+    sub.add_parser("move-next")
+    sub.add_parser("move-previous")
+    sub.add_parser("list")
+    sub.add_parser("current")
+
+    command = sub.add_parser("ensure-project")
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--name", required=True)
+    command.add_argument("--path", required=True)
+
+    args = parser.parse_args()
+
+    try:
+        if args.command == "ensure":
+            ensure_slot(args.slot)
+        elif args.command == "move-window":
+            move_window_to_slot(args.slot)
+        elif args.command == "focus-name":
+            focus_name(args.name)
+        elif args.command == "next":
+            focus_relative("next")
+        elif args.command == "previous":
+            focus_relative("previous")
+        elif args.command == "move-next":
+            move_relative("next")
+        elif args.command == "move-previous":
+            move_relative("previous")
+        elif args.command == "ensure-project":
+            ensure_project(args.workspace, args.name, args.path)
+        elif args.command == "list":
+            print_json(combined_state())
+        elif args.command == "current":
+            print_json(combined_state().get("active"))
+    except ValueError as exc:
+        print(f"sn0w-workspace: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()
