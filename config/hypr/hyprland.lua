@@ -1,7 +1,7 @@
 -- sn0w Hyprland entrypoint
 -- Native Lua configuration for Hyprland 0.55+.
 
-local terminal = "sn0w-terminal"
+local terminal = [[sh -lc 'if [ -x "$HOME/.local/bin/sn0w-terminal" ]; then exec "$HOME/.local/bin/sn0w-terminal"; else exec foot; fi']]
 local fileManager = "nautilus"
 
 local function readProfile()
