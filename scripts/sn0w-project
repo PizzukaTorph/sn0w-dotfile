@@ -145,6 +145,23 @@ def workspace_clients(project):
 
 
 def focus_workspace(project):
+    if shutil.which("sn0w-workspace"):
+        result = run(
+            [
+                "sn0w-workspace",
+                "ensure-project",
+                "--workspace",
+                project["workspace"],
+                "--name",
+                project["name"],
+                "--path",
+                project["path"],
+            ],
+            quiet=True,
+        )
+        if result.returncode == 0:
+            return
+
     run(["hyprctl", "dispatch", "workspace", f"name:{project['workspace']}"], quiet=True)
 
 
