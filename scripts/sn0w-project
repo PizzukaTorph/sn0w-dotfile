@@ -162,7 +162,8 @@ def focus_workspace(project):
         if result.returncode == 0:
             return
 
-    run(["hyprctl", "dispatch", "workspace", f"name:{project['workspace']}"], quiet=True)
+    workspace = json.dumps(f"name:{project['workspace']}")
+    run(["hyprctl", "dispatch", f"hl.dsp.focus({{ workspace = {workspace} }})"], quiet=True)
 
 
 def compose_services(project):
@@ -299,7 +300,8 @@ def stop(project, keep_services=False):
     for client in workspace_clients(project):
         address = str(client.get("address", ""))
         if address:
-            run(["hyprctl", "dispatch", "closewindow", f"address:{address}"], quiet=True)
+            window = json.dumps(f"address:{address}")
+            run(["hyprctl", "dispatch", f"hl.dsp.window.close({{ window = {window} }})"], quiet=True)
     write_state(project, False, "stopped")
     print(json.dumps(project_status(project)))
 
