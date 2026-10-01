@@ -42,6 +42,9 @@ Fedora Asahi Minimal is the hardware-enablement foundation. Fedora should largel
 - ⌘Tab: app switcher
 - ⌘`: cycle windows of the same app (target behaviour)
 - ⌘↑: Overview (target shortcut)
+- ⌘⇧1/2/3: ensure + focus General workspace slot 1/2/3
+- ⌘⌃⇧1/2/3: move current window to General workspace slot 1/2/3, creating it if needed
+- ⌘⌃←/→: previous/next existing semantic workspace
 - ⌘⌥D: Containers panel (candidate)
 
 ## 4. Shell responsibilities
@@ -142,6 +145,10 @@ Types:
 - **Activity**: optional recreational or non-development context such as Media, Gaming or Social.
 
 Do not pre-create many Activity workspaces. The model supports them; the user defines only useful ones.
+
+General workspaces use lazy semantic slots rather than fixed Hyprland numeric IDs. ⌘⇧1/2/3 ensures the corresponding slot exists and focuses it; ⌘⌃⇧1/2/3 moves the current window there and creates the slot when needed. Three-finger horizontal gestures and ⌘⌃←/→ navigate only existing semantic workspaces and never create new ones. Hyprland remains the compositor backend; sn0w owns workspace identity and ordering.
+
+Project Sessions register named Project workspaces through the same semantic workspace controller, so General and Project contexts participate in one navigation order without leaking Hyprland IDs into shell UX.
 
 Activity profiles can define name, icon, preferred apps/URLs/actions and persistence policy. Context may influence shell presentation and safe recommendations (for example Gaming can recommend Performance + DND), but manual user overrides always win.
 
