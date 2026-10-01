@@ -12,6 +12,7 @@ ShellRoot {
     property bool captureVisible: false
     property bool projectCenterVisible: false
     property bool settingsVisible: false
+    property bool shortcutsVisible: true
     property string mode: "General"
 
     function closeTransientSurfaces(): void {
@@ -51,6 +52,15 @@ ShellRoot {
     ProjectState {
         id: projectState
         settingsState: settingsState
+    }
+
+    ShortcutCatalog {
+        id: shortcutCatalog
+    }
+
+    ShortcutCheatsheet {
+        catalog: shortcutCatalog
+        shown: root.shortcutsVisible
     }
 
     OSD {
@@ -398,6 +408,22 @@ ShellRoot {
 
         function close(): void {
             root.captureVisible = false
+        }
+    }
+
+    IpcHandler {
+        target: "shortcuts"
+
+        function toggle(): void {
+            root.shortcutsVisible = !root.shortcutsVisible
+        }
+
+        function show(): void {
+            root.shortcutsVisible = true
+        }
+
+        function hide(): void {
+            root.shortcutsVisible = false
         }
     }
 
