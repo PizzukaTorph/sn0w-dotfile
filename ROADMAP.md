@@ -57,11 +57,14 @@ Hyprland must be launched from a real TTY with `start-hyprland`. Launching `Hypr
 
 ## Milestone 3 — Context workspaces
 
-- [ ] General / Project / Activity semantic workspaces
-- [ ] Overview
-- [ ] project workspace allocation
-- [ ] Activity profiles
-- [ ] window/session association
+- [x] semantic workspace controller + persistent metadata registry
+- [x] lazy General workspace slots (⌘⇧1/2/3)
+- [x] semantic previous/next navigation for gestures and keyboard
+- [x] semantic window moves + on-demand target creation
+- [x] Project workspace registration/allocation
+- [x] Overview V0 consumes semantic workspace state
+- [ ] Activity workspace profiles
+- [ ] richer window/session association
 - [ ] restore prompt
 
 ## Milestone 4 — Developer workstation
