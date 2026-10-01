@@ -1,0 +1,13 @@
+---
+# Keep Asahi hardware enablement owned by Fedora Asahi Remix.
+# This role is intentionally conservative: it must never replace kernels,
+# firmware or boot components from arbitrary sources.
+- name: Record Asahi provisioning mode
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.config/sn0w/hardware-provider"
+    content: "apple-asahi\n"
+    mode: '0644'
+
+- name: Leave hardware enablement to Fedora Asahi
+  ansible.builtin.debug:
+    msg: "Asahi hardware stack is distro-owned; sn0w only layers user-space configuration on top."

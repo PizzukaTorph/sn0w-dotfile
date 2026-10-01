@@ -1,0 +1,16 @@
+[Unit]
+Description=sn0w Quickshell shell
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# sn0w owns one Quickshell instance per graphical session. Kill accidental
+# manually-started duplicates before systemd takes ownership.
+ExecStartPre=-/usr/bin/pkill -x qs
+ExecStart=/usr/bin/qs
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

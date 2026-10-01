@@ -1,0 +1,49 @@
+---
+- name: Install Fedora Quickshell build compatible with Qt 6.11
+  ansible.builtin.dnf:
+    name: "quickshell-0.2.1^git20260209.dacfa9d-5.fc44"
+    state: present
+    allow_downgrade: true
+    disablerepo:
+      - "copr:copr.fedorainfracloud.org:nett00n:hyprland"
+  become: true
+
+- name: Install Qt Wayland and GNOME platform integration
+  ansible.builtin.dnf:
+    name:
+      - qt6-qtwayland
+      - qgnomeplatform-qt6
+    state: present
+  become: true
+
+- name: Link Quickshell configuration
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../shell/quickshell"
+    dest: "{{ ansible_facts['user_dir'] }}/.config/quickshell"
+    state: link
+    force: true
+
+- name: Install sn0w graphical session anchor
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/../config/systemd/user/sn0w-graphical-session.service"
+    dest: "{{ ansible_facts['user_dir'] }}/.config/systemd/user/sn0w-graphical-session.service"
+    state: link
+    force: true
+
+- name: Disable legacy sn0w shell user service
+  ansible.builtin.systemd_service:
+    name: sn0w-shell.service
+    enabled: false
+    state: stopped
+    scope: user
+  failed_when: false
+
+- name: Remove legacy sn0w shell user service link
+  ansible.builtin.file:
+    path: "{{ ansible_facts['user_dir'] }}/.config/systemd/user/sn0w-shell.service"
+    state: absent
+
+- name: Reload systemd user units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    scope: user

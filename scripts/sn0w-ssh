@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+alias_name="${1:-}"
+if [[ -z "$alias_name" ]]; then
+  echo "usage: sn0w-ssh <alias>" >&2
+  exit 2
+fi
+
+settings="${HOME}/.config/sn0w/settings.json"
+auth="key"
+if [[ -f "$settings" ]]; then
+  auth="$(jq -r --arg name "$alias_name" '.ssh.hosts[]? | select(type=="object" and .name==$name) | .auth // "key"' "$settings" | head -n1)"
+  [[ -n "$auth" ]] || auth="key"
+fi
+
+if [[ "$auth" == "password" ]]; then
+  export SN0W_SSH_ALIAS="$alias_name"
+  export SSH_ASKPASS="${HOME}/.local/bin/sn0w-ssh-askpass"
+  export SSH_ASKPASS_REQUIRE=force
+  exec setsid -w ssh "$alias_name" </dev/null
+fi
+
+exec ssh "$alias_name"

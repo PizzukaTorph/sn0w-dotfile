@@ -1,0 +1,9 @@
+---
+- name: Install PipeWire control utilities
+  ansible.builtin.dnf:
+    name:
+      - pipewire
+      - wireplumber
+      - pipewire-utils
+    state: present
+  become: true

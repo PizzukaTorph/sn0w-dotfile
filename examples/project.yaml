@@ -1,0 +1,23 @@
+# PROVISIONAL Project Center manifest example.
+# Schema is not frozen.
+name: Underground
+icon: ./assets/underground.svg
+path: ~/Projects/underground-platform
+editor: code
+
+compose:
+  file: docker-compose.yml
+
+links:
+  - name: Web
+    url: http://localhost:3000
+  - name: Studio
+    url: http://localhost:3001
+  - name: Admin
+    url: http://localhost:3002
+
+terminals:
+  - name: Root
+    cwd: .
+  - name: API
+    cwd: apps/api

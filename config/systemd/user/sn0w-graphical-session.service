@@ -1,0 +1,10 @@
+[Unit]
+Description=sn0w graphical session anchor
+Requires=graphical-session.target
+After=graphical-session.target
+Before=xdg-desktop-portal.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+RemainAfterExit=yes
