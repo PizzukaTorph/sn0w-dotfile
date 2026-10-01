@@ -48,6 +48,12 @@ else
   fail "shell IPC handlers are unavailable"
 fi
 
+if sn0w-workspace list | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "workspaces" in d and "active" in d' 2>/dev/null; then
+  pass "semantic workspace backend returns valid live state"
+else
+  fail "semantic workspace backend status is invalid"
+fi
+
 if [[ $# -gt 0 ]]; then
   project="$1"
   if sn0w-project doctor "$project" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["checks"]["ok"] is True' 2>/dev/null; then
