@@ -38,7 +38,7 @@ Fedora Asahi Minimal is the hardware-enablement foundation. Fedora should largel
 - Ctrl+C/D/Z: Unix semantics in terminals
 - ⇧⌥T: Ghostty
 - ⇧⌥V: VS Code
-- ⌘Space: launcher / command palette
+- ⌘Space: toggle launcher / command palette
 - ⌘Tab: app switcher
 - ⌘`: cycle windows of the same app (target behaviour)
 - ⌘↑: Overview (target shortcut)
@@ -114,7 +114,7 @@ Terminal UX must preserve Unix controls while supporting macOS muscle memory: �
 
 ### Launcher
 
-⌘Space opens a Quickshell launcher inspired by Spotlight/Raycast.
+⌘Space toggles a Quickshell launcher inspired by Spotlight/Raycast: press once to open, press again to close.
 
 V1:
 - enumerate .desktop applications
