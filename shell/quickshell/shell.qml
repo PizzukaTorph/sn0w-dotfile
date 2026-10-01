@@ -39,6 +39,11 @@ ShellRoot {
         id: hyprState
     }
 
+    WorkspaceState {
+        id: workspaceState
+        hyprState: hyprState
+    }
+
     SettingsState {
         id: settingsState
     }
@@ -134,6 +139,7 @@ ShellRoot {
         sourceComponent: Component {
             Overview {
                 hyprState: hyprState
+                workspaceState: workspaceState
                 projectState: projectState
                 visible: true
                 onCloseRequested: root.overviewVisible = false
@@ -274,6 +280,7 @@ ShellRoot {
             root.closeTransientSurfaces()
             root.overviewVisible = next
             hyprState.refresh()
+            workspaceState.refresh()
             projectState.refresh()
         }
 
@@ -281,11 +288,36 @@ ShellRoot {
             root.closeTransientSurfaces()
             root.overviewVisible = true
             hyprState.refresh()
+            workspaceState.refresh()
             projectState.refresh()
         }
 
         function close(): void {
             root.overviewVisible = false
+        }
+    }
+
+    IpcHandler {
+        target: "workspace"
+
+        function ensure(slot: int): void {
+            workspaceState.ensureSlot(slot)
+        }
+
+        function next(): void {
+            workspaceState.next()
+        }
+
+        function previous(): void {
+            workspaceState.previous()
+        }
+
+        function move(slot: int): void {
+            workspaceState.moveWindowToSlot(slot)
+        }
+
+        function refresh(): void {
+            workspaceState.refresh()
         }
     }
 
