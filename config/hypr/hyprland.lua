@@ -1,7 +1,7 @@
 -- sn0w Hyprland entrypoint
 -- Native Lua configuration for Hyprland 0.55+.
 
-local terminal = "foot"
+local terminal = "sn0w-terminal"
 local fileManager = "nautilus"
 
 local function readProfile()
@@ -161,13 +161,11 @@ hl.on("hyprland.start", function()
 end)
 
 -- Core sn0w contracts.
--- Launcher is intentionally open-only from the global shortcut. Visibility can
--- desynchronise briefly while a launched desktop entry takes focus; using
--- `open` makes SUPER+SPACE idempotent instead of letting stale state turn the
--- next press into an accidental close.
+-- Launcher follows the expected Spotlight-style toggle contract:
+-- SUPER+SPACE opens it when hidden and closes it when already visible.
 hl.bind(
     "SUPER + SPACE",
-    hl.dsp.exec_cmd("qs ipc call launcher open"),
+    hl.dsp.exec_cmd("qs ipc call launcher toggle"),
     {
         dont_inhibit = true,
         transparent = true,
@@ -203,7 +201,12 @@ hl.bind("SUPER + UP", hl.dsp.exec_cmd("qs ipc call overview toggle"))
 hl.bind("SUPER + ALT + D", hl.dsp.exec_cmd("qs ipc call projects toggle"))
 hl.bind("SUPER + COMMA", hl.dsp.exec_cmd("qs ipc call settings toggle"))
 hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
+
+-- Canonical terminal shortcut follows the sn0w/macOS-like contract.
+-- Keep SUPER+SHIFT+RETURN as a secondary muscle-memory shortcut.
+hl.bind("ALT + SHIFT + T", hl.dsp.exec_cmd(terminal))
 hl.bind("SUPER + SHIFT + RETURN", hl.dsp.exec_cmd(terminal))
+
 hl.bind("SUPER + E", hl.dsp.exec_cmd(fileManager))
 
 -- Capture contracts, matching macOS muscle memory.
