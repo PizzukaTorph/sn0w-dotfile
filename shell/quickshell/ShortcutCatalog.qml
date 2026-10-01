@@ -11,7 +11,7 @@ QtObject {
         {
             title: "Navigate",
             items: [
-                { keys: "⌘ Space", action: "Launcher" },
+                { keys: "⌘ Space", action: "Launcher toggle" },
                 { keys: "⌘ Tab", action: "App switcher" },
                 { keys: "⌘ ↑", action: "Overview" },
                 { keys: "3 fingers ← / →", action: "Previous / next workspace" }
@@ -28,7 +28,7 @@ QtObject {
         {
             title: "Daily",
             items: [
-                { keys: "⌘ ⇧ ↩", action: "Terminal" },
+                { keys: "⇧ ⌥ T", action: "Terminal" },
                 { keys: "⌘ E", action: "Files" },
                 { keys: "⌘ ⇧ V", action: "Clipboard" },
                 { keys: "⌘ W", action: "Close window" },
@@ -71,7 +71,7 @@ QtObject {
         {
             title: "Apps",
             items: [
-                { keys: "⌘ ⇧ ↩", action: "Terminal" },
+                { keys: "⇧ ⌥ T", action: "Terminal" },
                 { keys: "⌘ E", action: "Files" }
             ]
         },
