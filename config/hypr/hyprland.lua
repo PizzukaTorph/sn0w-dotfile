@@ -100,13 +100,13 @@ end
 hl.gesture({
     fingers = 3,
     direction = "left",
-    action = sn0wGesture("hyprctl dispatch workspace e+1"),
+    action = sn0wGesture("sn0w-workspace next"),
 })
 
 hl.gesture({
     fingers = 3,
     direction = "right",
-    action = sn0wGesture("hyprctl dispatch workspace e-1"),
+    action = sn0wGesture("sn0w-workspace previous"),
 })
 
 hl.gesture({
@@ -118,7 +118,7 @@ hl.gesture({
 hl.gesture({
     fingers = 3,
     direction = "down",
-    action = sn0wGesture("hyprctl dispatch killactive"),
+    action = sn0wGesture("qs ipc call overview close"),
 })
 
 -- Centered sn0w system surfaces must never enter the tiling tree.
@@ -232,10 +232,19 @@ hl.bind("SUPER + LEFT", hl.dsp.focus({ direction = "l" }))
 hl.bind("SUPER + RIGHT", hl.dsp.focus({ direction = "r" }))
 hl.bind("SUPER + DOWN", hl.dsp.focus({ direction = "d" }))
 
--- Workspace navigation uses CTRL so plain Command+arrows remain available for app semantics.
-hl.bind("SUPER + CTRL + LEFT", hl.dsp.focus({ workspace = "e-1" }))
-hl.bind("SUPER + CTRL + RIGHT", hl.dsp.focus({ workspace = "e+1" }))
-hl.bind("SUPER + CTRL + SHIFT + LEFT", hl.dsp.window.move({ workspace = "e-1" }))
-hl.bind("SUPER + CTRL + SHIFT + RIGHT", hl.dsp.window.move({ workspace = "e+1" }))
+-- Semantic workspace navigation. Hyprland remains the compositor/backend;
+-- sn0w owns workspace identity, ordering and on-demand slot creation.
+hl.bind("SUPER + CTRL + LEFT", hl.dsp.exec_cmd("sn0w-workspace previous"))
+hl.bind("SUPER + CTRL + RIGHT", hl.dsp.exec_cmd("sn0w-workspace next"))
+hl.bind("SUPER + CTRL + SHIFT + LEFT", hl.dsp.exec_cmd("sn0w-workspace move-previous"))
+hl.bind("SUPER + CTRL + SHIFT + RIGHT", hl.dsp.exec_cmd("sn0w-workspace move-next"))
+
+-- General workspace slots are created lazily.
+hl.bind("SUPER + SHIFT + 1", hl.dsp.exec_cmd("sn0w-workspace ensure 1"))
+hl.bind("SUPER + SHIFT + 2", hl.dsp.exec_cmd("sn0w-workspace ensure 2"))
+hl.bind("SUPER + SHIFT + 3", hl.dsp.exec_cmd("sn0w-workspace ensure 3"))
+hl.bind("SUPER + CTRL + SHIFT + 1", hl.dsp.exec_cmd("sn0w-workspace move-window 1"))
+hl.bind("SUPER + CTRL + SHIFT + 2", hl.dsp.exec_cmd("sn0w-workspace move-window 2"))
+hl.bind("SUPER + CTRL + SHIFT + 3", hl.dsp.exec_cmd("sn0w-workspace move-window 3"))
 
 hl.bind("SUPER + SHIFT + Q", hl.dsp.exit())
